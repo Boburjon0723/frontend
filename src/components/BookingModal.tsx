@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GlassCard } from './GlassCard';
-import { GlassButton } from './GlassButton';
+import { GlassCard } from './ui/GlassCard';
+import { GlassButton } from './ui/GlassButton';
 
 interface BookingModalProps {
     isOpen: boolean;
