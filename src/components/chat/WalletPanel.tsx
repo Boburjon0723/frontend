@@ -611,13 +611,13 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                     <div className="animate-fade-in mt-4 border-t border-white/10 pt-6 space-y-6">
                         <div className="flex items-center p-1 bg-white/5 rounded-2xl border border-white/10 w-fit mx-auto">
                             <button
-                                onClick={() => setMarketTab(marketTab.startsWith('my-') ? marketTab.replace('my-', '') : marketTab) as any}
+                                onClick={() => setMarketTab((marketTab.startsWith('my-') ? marketTab.replace('my-', '') : marketTab) as 'none' | 'buy' | 'sell' | 'my-buy' | 'my-sell')}
                                 className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${!marketTab.startsWith('my-') ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
                             >
                                 Bozor
                             </button>
                             <button
-                                onClick={() => setMarketTab(`my-${marketTab.replace('my-', '')}` as any)}
+                                onClick={() => setMarketTab(`my-${marketTab.replace('my-', '')}` as 'my-buy' | 'my-sell')}
                                 className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${marketTab.startsWith('my-') ? 'bg-amber-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
                             >
                                 Mening E'lonlarim
