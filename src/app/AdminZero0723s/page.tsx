@@ -21,7 +21,7 @@ export default function AdminPanel() {
     const [jobCategories, setJobCategories] = useState([]);
     const [newCategory, setNewCategory] = useState({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
 
     useEffect(() => {
         checkAdminAccess();
