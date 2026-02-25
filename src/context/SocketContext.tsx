@@ -37,7 +37,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const socketURL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000';
+        const socketURL = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
         console.log(`[SocketContext] Connecting to ${socketURL}...`);
 
         if (socketRef.current) {
