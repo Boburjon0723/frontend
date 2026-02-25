@@ -5,7 +5,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { useRouter } from 'next/navigation';
 
 // ✅ FIXED: Default API URL qo'shildi
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
 
 const COUNTRY_CODES = [
     { code: '+998', country: 'UZ', label: 'Uzbekistan' },
@@ -59,7 +59,7 @@ export default function AuthPage() {
             }
         } catch (err) {
             console.error('Login error:', err); // ✅ ADDED: Debug log
-            setError('Server connection failed. Please check if backend is running on port 4000.');
+            setError('Serverga ulanib bo\'lmadi. Internet aloqangizni tekshiring va qayta urining.');
         } finally {
             setLoading(false); // ✅ ADDED
         }
@@ -123,7 +123,7 @@ export default function AuthPage() {
             }
         } catch (err) {
             console.error('Registration error:', err); // ✅ ADDED: Debug log
-            setError('Server connection failed. Please check if backend is running on port 4000.');
+            setError('Serverga ulanib bo\'lmadi. Internet aloqangizni tekshiring va qayta urining.');
         } finally {
             setLoading(false); // ✅ ADDED
         }
