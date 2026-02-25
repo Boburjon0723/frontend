@@ -599,7 +599,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
         } catch (err) { console.error("Voice upload error:", err); }
     };
 
-    const sendMediaMessage = (url: string, type: 'image' | 'file' | 'voice') => {
+    const sendMediaMessage = (url: string, type: 'image' | 'file' | 'voice' | 'video' | 'text') => {
         if (!socket || !chat) return;
 
         socket.emit('send_message', {
