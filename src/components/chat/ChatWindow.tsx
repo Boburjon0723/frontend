@@ -43,7 +43,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
         if (!chat || !chat.isTrade || !chat.tradeId) return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/p2p/trade/${chat.tradeId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -58,7 +58,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
         if (!chat || !chat.id) return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app' || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app' || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/p2p/trades`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -78,7 +78,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
 
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/users/contacts`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -99,7 +99,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
 
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/users/contacts`, {
                 method: 'POST',
                 headers: {
@@ -128,7 +128,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
         if (!chat || chat.type !== 'private') return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const targetId = chat.otherUser?.id || chat.userId || chat.id;
             const res = await fetch(`${API_URL}/api/users/${targetId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -188,7 +188,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
     const handleSendCoin = async (amount: number, pin: string): Promise<{ success: boolean; error?: string }> => {
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
 
             let receiverId = chat.userId || chat.id;
 
@@ -346,7 +346,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
             }
             try {
                 const token = localStorage.getItem('token');
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
 
                 console.log(`Fetching history from: ${API_URL}/api/chats/${chat.id}/messages`);
 
@@ -586,7 +586,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/media/upload`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/api/media/upload`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
@@ -689,7 +689,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
                                 if (!isTrade && avatar && avatar !== 'null' && avatar !== '' && avatar !== 'use_initials') {
                                     const src = avatar.startsWith('http') || avatar.startsWith('data:')
                                         ? avatar
-                                        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${avatar}`;
+                                        : `${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/${avatar}`;
                                     return (
                                         <img
                                             src={src}
@@ -836,7 +836,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
                                 <>
                                     <button
                                         onClick={async () => {
-                                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/service/complete`, {
+                                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/api/service/complete`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                                                 body: JSON.stringify({ sessionId: activeSession.id })
@@ -849,7 +849,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
                                     </button>
                                     <button
                                         onClick={async () => {
-                                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/service/cancel`, {
+                                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/api/service/cancel`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                                                 body: JSON.stringify({ sessionId: activeSession.id })

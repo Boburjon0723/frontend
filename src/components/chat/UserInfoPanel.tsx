@@ -31,7 +31,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
         setImgError(false);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const targetId = chat.participantId || chat.otherUser?.id || chat.userId || chat.id;
             const res = await fetch(`${API_URL}/api/users/${targetId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -53,7 +53,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
         if (!chat?.id || chat.type !== 'private') return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/users/chat-stats/${chat.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -70,7 +70,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
         setActionLoading('block');
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const targetId = chat.participantId || chat.otherUser?.id || chat.userId || chat.id;
             const res = await fetch(`${API_URL}/api/users/${isBlocked ? 'unblock' : 'block'}`, {
                 method: 'POST',
@@ -91,7 +91,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
         setActionLoading('edit');
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const targetId = chat.participantId || chat.otherUser?.id || chat.userId || chat.id;
             const res = await fetch(`${API_URL}/api/users/contacts`, {
                 method: 'PUT',
@@ -115,7 +115,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
         setActionLoading('delete');
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const targetId = chat.participantId || chat.otherUser?.id || chat.userId || chat.id;
             const res = await fetch(`${API_URL}/api/users/contacts/${targetId}`, {
                 method: 'DELETE',
@@ -133,7 +133,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
     const user = fullUserDetails || chat;
     const rawAvatar = user.avatar || user.avatar_url;
     const avatarUrl = rawAvatar && rawAvatar !== 'null' && rawAvatar !== ''
-        ? (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:') ? rawAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${rawAvatar}`)
+        ? (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:') ? rawAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/${rawAvatar}`)
         : null;
 
     const initials = user.name ? user.name.substring(0, 1).toUpperCase() : '?';

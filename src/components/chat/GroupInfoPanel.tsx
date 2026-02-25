@@ -24,7 +24,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats/${chat.id || chat._id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -52,7 +52,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
         if (!chat) return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats/${chat.id || chat._id}/participants`, {
                 method: 'POST',
                 headers: {

@@ -46,7 +46,7 @@ export default function ExpenseTracker() {
     const fetchExpenses = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
 
             // Format dates for the month
             const startStr = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).toISOString().split('T')[0];
@@ -62,7 +62,7 @@ export default function ExpenseTracker() {
     const fetchStats = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(API_URL + '/api/expenses/stats', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -81,7 +81,7 @@ export default function ExpenseTracker() {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(API_URL + '/api/expenses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -104,7 +104,7 @@ export default function ExpenseTracker() {
         if (!confirmModal.id) return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(API_URL + '/api/expenses/' + confirmModal.id, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + token }

@@ -17,7 +17,7 @@ export default function CreateGroupModal({ onClose, onCreateGroup }: CreateGroup
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
                 const res = await fetch(`${API_URL}/api/users`);
                 if (res.ok) {
                     const data = await res.json();

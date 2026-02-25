@@ -101,7 +101,7 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
     const [selectedExpert, setSelectedExpert] = useState<any>(null);
     const [showJobForm, setShowJobForm] = useState(false);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
 
     const fetchCategories = async () => {
         try {

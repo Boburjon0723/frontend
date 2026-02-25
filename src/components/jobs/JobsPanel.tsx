@@ -22,7 +22,7 @@ export default function JobsPanel() {
         const fetchJobs = async () => {
             setLoading(true);
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
                 const response = await fetch(`${API_URL}/api/jobs?type=${activeTab === 'online' ? 'online' : 'all'}`); // Simple filter logic
                 if (response.ok) {
                     const data = await response.json();

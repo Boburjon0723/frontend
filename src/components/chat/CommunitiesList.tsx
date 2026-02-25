@@ -23,7 +23,7 @@ export default function CommunitiesList() {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             let url = API_URL + '/api/chats/communities?';
             if (selectedRegion) url += 'region=' + encodeURIComponent(selectedRegion) + '&';
             if (searchQuery) url += 'q=' + encodeURIComponent(searchQuery) + '&';
@@ -46,7 +46,7 @@ export default function CommunitiesList() {
     const handleJoin = async (communityId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(API_URL + '/api/chats/communities/' + communityId + '/join', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token }

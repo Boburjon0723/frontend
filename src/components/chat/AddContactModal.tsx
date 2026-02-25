@@ -36,7 +36,7 @@ export default function AddContactModal({ onClose, onStartChat }: AddContactModa
 
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
 
             // 1. Search for user BY PHONE STRICTLY
             const searchRes = await fetch(`${API_URL}/api/users/search?phone=${encodeURIComponent(phoneNumber)}`, {

@@ -98,7 +98,7 @@ export default function MessagesPage() {
             return;
         }
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -130,7 +130,7 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/users/contacts`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -160,7 +160,7 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -189,7 +189,7 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -205,7 +205,7 @@ export default function MessagesPage() {
 
     const handleCreateChannel = async (data: any) => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats`, {
                 method: 'POST',
                 headers: {
@@ -223,7 +223,7 @@ export default function MessagesPage() {
 
     const handleSupport = async () => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/users`);
             if (res.ok) {
                 const users = await res.json();
@@ -239,7 +239,7 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/users/contacts/${contactId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -265,7 +265,7 @@ export default function MessagesPage() {
         setIsSearching(true);
         const token = localStorage.getItem('token');
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
             // Search both contacts (local) and global users (API)
             const res = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(query)}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
