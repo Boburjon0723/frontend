@@ -52,6 +52,7 @@ export default function AuthPage() {
 
             if (res.ok) {
                 localStorage.setItem('token', data.token);
+                localStorage.setItem('refreshToken', data.refreshToken);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 router.push('/messages');
             } else {

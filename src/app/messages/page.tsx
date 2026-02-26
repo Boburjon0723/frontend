@@ -34,6 +34,8 @@ import {
     Moon,
     LogOut
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+
 
 export default function MessagesPage() {
     const { socket } = useSocket();
@@ -98,10 +100,7 @@ export default function MessagesPage() {
             return;
         }
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/chats`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/chats`);
             if (res.ok) {
                 const data = await res.json();
                 const mappedChats = data.map((chat: any) => ({
@@ -130,10 +129,7 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/users/contacts`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/users/contacts`);
             if (res.ok) {
                 const users = await res.json();
                 if (Array.isArray(users)) {
@@ -160,10 +156,8 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/chats`, {
+            const res = await apiFetch(`/api/chats`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ participantId: user.id || user.userId })
             });
             if (res.ok) {
@@ -189,10 +183,8 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/chats`, {
+            const res = await apiFetch(`/api/chats`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ type: 'group', name, participants: participantIds })
             });
             if (res.ok) {
@@ -205,13 +197,8 @@ export default function MessagesPage() {
 
     const handleCreateChannel = async (data: any) => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/chats`, {
+            const res = await apiFetch(`/api/chats`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
                 body: JSON.stringify({ type: 'channel', ...data })
             });
             if (res.ok) {
@@ -223,8 +210,7 @@ export default function MessagesPage() {
 
     const handleSupport = async () => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/users`);
+            const res = await apiFetch(`/api/users`);
             if (res.ok) {
                 const users = await res.json();
                 const admin = users.find((u: any) => u.phone === '+998950203601' || u.role === 'admin');
@@ -239,10 +225,8 @@ export default function MessagesPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/users/contacts/${contactId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await apiFetch(`/api/users/contacts/${contactId}`, {
+                method: 'DELETE'
             });
             if (res.ok) {
                 await fetchContacts();
@@ -265,11 +249,7 @@ export default function MessagesPage() {
         setIsSearching(true);
         const token = localStorage.getItem('token');
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            // Search both contacts (local) and global users (API)
-            const res = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(query)}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`);
             if (res.ok) {
                 const globalResults = await res.json();
                 const mappedResults = globalResults.map((u: any) => ({

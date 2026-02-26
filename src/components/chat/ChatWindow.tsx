@@ -4,6 +4,7 @@ import { MessageBubble } from './MessageBubble';
 import SendCoinModal from './SendCoinModal';
 import MediaPreviewModal from './MediaPreviewModal';
 import { useSocket } from '@/context/SocketContext'; // Import socket hook
+import { apiFetch } from '@/lib/api';
 
 // Mock Messages (Initial State)
 // Initial state should be empty or fetched
@@ -42,11 +43,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
     const fetchTradeDetails = useCallback(async () => {
         if (!chat || !chat.isTrade || !chat.tradeId) return;
         try {
-            const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/p2p/trade/${chat.tradeId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/p2p/trade/${chat.tradeId}`);
             if (res.ok) {
                 const data = await res.json();
                 setTradeData(data);
@@ -57,11 +54,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
     const fetchActiveSession = useCallback(async () => {
         if (!chat || !chat.id) return;
         try {
-            const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app' || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/p2p/trades`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/p2p/trades`);
             if (res.ok) {
                 const sessions = await res.json();
                 const current = sessions.find((s: any) => s.chat_id === chat.id && (s.status === 'initiated' || s.status === 'ongoing'));
@@ -77,11 +70,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack }: ChatWindowPro
         }
 
         try {
-            const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
-            const res = await fetch(`${API_URL}/api/users/contacts`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/users/contacts`);
 
             if (res.ok) {
                 const contacts = await res.json();
