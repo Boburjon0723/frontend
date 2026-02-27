@@ -261,8 +261,10 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         socket.emit('call_signal', { to: data.from, signal: answer });
                     } else if (data.signal.type === 'answer') {
                         await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.signal));
-                    } else if (data.signal.candidate) {
-                        await pcRef.current.addIceCandidate(new RTCIceCandidate(data.signal));
+                    } else if (data.signal.candidate || (typeof data.signal === 'string' && data.signal.includes('candidate'))) {
+                        // Handle candidate relay
+                        const candidate = data.signal.candidate ? data.signal : data.signal;
+                        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
                     }
                 } catch (err) {
                     console.error("WebRTC Signaling Error:", err);
@@ -297,11 +299,18 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
 
     const initializePeerConnection = (targetUserId: string) => {
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+            ]
         });
 
         pc.onicecandidate = (event) => {
             if (event.candidate && socket) {
+                console.log("[WebRTC] Sending ICE candidate to", targetUserId);
                 socket.emit('call_signal', { to: targetUserId, signal: event.candidate });
             }
         };
@@ -722,9 +731,22 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </button>
                             {!isTrade && (
-                                <button onClick={handleCall} className="p-2 text-white/60 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => { setCallType('audio'); setTimeout(() => handleCall(), 0); }}
+                                        className="p-2 text-white/60 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
+                                        title="Ovozli chaqiruv"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                    </button>
+                                    <button
+                                        onClick={() => { setCallType('video'); setTimeout(() => handleCall(), 0); }}
+                                        className="p-2 text-white/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
+                                        title="Videochaqiruv"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                    </button>
+                                </div>
                             )}
                             <div className="relative">
                                 <button onClick={() => setShowMoreMenu(!showMoreMenu)} className={`p-2 rounded-full transition-all ${showMoreMenu ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/10'}`}>
