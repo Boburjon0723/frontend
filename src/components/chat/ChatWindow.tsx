@@ -636,19 +636,17 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                 const file = new File([audioBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
 
                 setIsUploadingMedia(true);
+                const { uploadFileWithProgress } = await import('@/lib/upload');
                 const formData = new FormData();
-                formData.append('file', file);
+                formData.append('files', file);
 
                 try {
-                    const res = await apiFetch(`/api/media/upload`, { method: 'POST', body: formData });
-                    if (res.ok) {
-                        const data = await res.json();
-                        const clientSideId = `voice_${Date.now()}`;
-                        if (socket) {
-                            socket.emit('send_message', { roomId: chat.id, content: data.url, type: 'voice', clientSideId });
-                        }
-                        setMessages(prev => [...prev, { id: clientSideId, text: data.url, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type: 'voice' }]);
+                    const data = await uploadFileWithProgress(`/api/media/upload`, formData);
+                    const clientSideId = `voice_${Date.now()}`;
+                    if (socket) {
+                        socket.emit('send_message', { roomId: chat.id, content: data.url, type: 'voice', clientSideId });
                     }
+                    setMessages(prev => [...prev, { id: clientSideId, text: data.url, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type: 'voice' }]);
                 } catch (err) { console.error("Voice upload error:", err); }
                 finally { setIsUploadingMedia(false); }
 
