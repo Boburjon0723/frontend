@@ -12,6 +12,8 @@ interface Message {
     isAdmin?: boolean;
     type?: string;
     metadata?: any;
+    isUploading?: boolean;
+    error?: string;
 }
 
 interface MessageBubbleProps {
@@ -20,6 +22,7 @@ interface MessageBubbleProps {
     isSelecting?: boolean;
     isSelected?: boolean;
     onSelect?: () => void;
+    uploadProgress?: number;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onReply, isSelecting, isSelected, onSelect }) => {
@@ -118,6 +121,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onReply, 
                         ${message.type === 'image' || message.type === 'video' ? 'rounded-2xl' : 'px-4 py-3 rounded-2xl'}
                         ${message.isOwn ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white/10 backdrop-blur-xl text-white border border-white/5 rounded-bl-sm'}
                     `} onContextMenu={isSelecting ? undefined : handleMediaContextMenu}>
+                        {message.isUploading && (
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4">
+                                {message.error ? (
+                                    <div className="text-red-400 text-center">
+                                        <svg className="h-8 w-8 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <span className="text-[10px] font-bold uppercase">{message.error}</span>
+                                    </div>
+                                ) : (
+                                    <div className="w-full max-w-[120px]">
+                                        <div className="flex justify-between text-[10px] text-white font-bold mb-1">
+                                            <span>Yuklanmoqda</span>
+                                            <span>{uploadProgress || 0}%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-blue-400 transition-all duration-300"
+                                                style={{ width: `${uploadProgress || 0}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {message.type === 'image' ? (
                             <div className="relative group/img min-w-[200px]">
                                 <img src={message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${message.text}`} className="w-full max-h-[400px] object-cover rounded-lg" />

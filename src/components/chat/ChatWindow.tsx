@@ -62,6 +62,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [uploadProgresses, setUploadProgresses] = useState<Record<string, number>>({});
+    const [isDragging, setIsDragging] = useState(false);
+    const folderInputRef = useRef<HTMLInputElement>(null);
 
     // Selection Mode
     const [isSelecting, setIsSelecting] = useState(false);
@@ -541,32 +544,80 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         setReplyTo(null);
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isFolder = false) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
-        setIsUploadingMedia(true);
-        for (let i = 0; i < files.length; i++) {
-            const formData = new FormData();
-            formData.append('file', files[i]);
-            try {
-                const res = await apiFetch(`/api/media/upload`, { method: 'POST', body: formData });
-                if (res.ok) {
-                    const data = await res.json();
-                    let type = 'file';
-                    if (files[i].type.startsWith('image/')) type = 'image';
-                    else if (files[i].type.startsWith('video/')) type = 'video';
-                    else if (files[i].type.startsWith('audio/')) type = 'voice';
 
-                    const clientSideId = `temp_${Date.now()}_${i}`;
+        setIsUploadingMedia(true);
+        const { uploadFileWithProgress } = await import('@/lib/upload');
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const tempId = `temp_${Date.now()}_${i}`;
+
+            // Optimistic UI for each file
+            const initialType = file.type.startsWith('image/') ? 'image' : (file.type.startsWith('video/') ? 'video' : (file.type.startsWith('audio/') ? 'voice' : 'file'));
+
+            setMessages(prev => [...prev, {
+                id: tempId,
+                text: file.name,
+                sender: 'me',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                type: initialType,
+                isUploading: true
+            }]);
+
+            const formData = new FormData();
+            formData.append('files', file); // Backend now expects 'files' array
+
+            try {
+                const data = await uploadFileWithProgress('/api/media/upload', formData, (progress) => {
+                    setUploadProgresses(prev => ({ ...prev, [tempId]: progress.percent }));
+                });
+
+                if (data.files && data.files.length > 0) {
+                    const uploadedFile = data.files[0];
                     if (socket) {
-                        socket.emit('send_message', { roomId: chat.id, content: data.url, type, clientSideId });
+                        socket.emit('send_message', {
+                            roomId: chat.id,
+                            content: uploadedFile.url,
+                            type: uploadedFile.mimetype.startsWith('image/') ? 'image' : (uploadedFile.mimetype.startsWith('video/') ? 'video' : 'file'),
+                            clientSideId: tempId
+                        });
                     }
-                    setMessages(prev => [...prev, { id: clientSideId, text: data.url, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type }]);
+                    // Update state to remove progress and mark as uploaded
+                    setUploadProgresses(prev => {
+                        const next = { ...prev };
+                        delete next[tempId];
+                        return next;
+                    });
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Upload failed for", file.name, err);
+                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, error: 'Yuklashda xato' } : m));
+            }
         }
         setIsUploadingMedia(false);
-        e.target.value = '';
+        if (e.target) e.target.value = '';
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const fakeEvent = { target: { files: e.dataTransfer.files } } as any;
+            handleFileUpload(fakeEvent);
+        }
     };
 
     const startRecording = async () => {
@@ -860,7 +911,23 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar" onScroll={handleScroll}>
+            <div
+                className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative ${isDragging ? 'bg-blue-500/10' : ''}`}
+                onScroll={handleScroll}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
+                {isDragging && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/20 backdrop-blur-sm pointer-events-none">
+                        <div className="bg-[#1e293b] border-2 border-dashed border-blue-500 p-8 rounded-3xl flex flex-col items-center gap-4 animate-scale-in">
+                            <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            </div>
+                            <span className="text-white font-bold">Fayllarni bu yerga tashlang</span>
+                        </div>
+                    </div>
+                )}
                 {filteredMessages.map((msg, i) => (
                     <MessageBubble
                         key={msg.id || i}
@@ -869,6 +936,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         isSelecting={isSelecting}
                         isSelected={selectedMessageIds.includes(msg.id)}
                         onSelect={() => toggleSelection(msg.id)}
+                        uploadProgress={uploadProgresses[msg.id]}
                     />
                 ))}
                 <div ref={messagesEndRef} />
@@ -878,7 +946,16 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             <div className="p-4 pt-0 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
                 <GlassCard className="flex items-center gap-2 !p-2 border border-white/10 !bg-black/20">
                     <input type="file" ref={fileInputRef} className="hidden" multiple accept="*" onChange={handleFileUpload} />
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 text-white/50 hover:text-blue-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg></button>
+                    <input type="file" ref={folderInputRef} className="hidden" multiple {...({ webkitdirectory: "" } as any)} onChange={(e) => handleFileUpload(e, true)} />
+
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => fileInputRef.current?.click()} className="p-2 text-white/50 hover:text-blue-400 transition-colors" title="Fayl yuborish">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                        </button>
+                        <button onClick={() => folderInputRef.current?.click()} className="p-2 text-white/50 hover:text-amber-400 transition-colors" title="Papka yuborish">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                        </button>
+                    </div>
                     <div className="flex-1 flex items-center bg-transparent border-none outline-none text-white text-sm min-h-[40px]">
                         {isRecording ? (
                             <div className="flex items-center gap-3 w-full animate-pulse text-red-400 font-bold">
