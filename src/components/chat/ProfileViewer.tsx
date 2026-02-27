@@ -321,8 +321,13 @@ export default function ProfileViewer({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1c242f] via-transparent to-black/30"></div>
 
-                <div className="absolute top-0 inset-x-0 p-4 flex justify-between items-center z-10">
-                    <button onClick={onClose} className="text-white/80 hover:text-white bg-white/10 p-2 rounded-full backdrop-blur-md transition-all border border-white/10"><X className="h-5 w-5" /></button>
+                <div className="absolute top-0 inset-x-0 p-4 pt-[max(1rem,env(safe-area-inset-top))] flex justify-between items-center z-10">
+                    <button onClick={onClose} className="text-white/80 hover:text-white bg-white/10 p-2 rounded-full backdrop-blur-md transition-all border border-white/10 flex items-center gap-1 group">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 lg:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        <X className="h-5 w-5 hidden lg:block" />
+                    </button>
                     <div className="flex gap-4">
                         <button onClick={() => setShowLanguageModal(true)} className="text-white/80 hover:text-white bg-white/10 p-2 rounded-full backdrop-blur-md transition-all flex items-center gap-2 px-3 border border-white/10">
                             <Languages className="h-4 w-4" />

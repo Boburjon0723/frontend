@@ -5,7 +5,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { useRouter } from 'next/navigation';
 
 // ✅ FIXED: Default API URL qo'shildi
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const COUNTRY_CODES = [
     { code: '+998', country: 'UZ', label: 'Uzbekistan' },
@@ -40,9 +40,11 @@ export default function AuthPage() {
         setLoading(true); // ✅ ADDED
 
         const fullPhone = `${countryCode}${phone.replace(/\D/g, '')}`;
+        console.log(`[AUTH] Attempting login. API_URL: ${API_URL}, Phone: ${fullPhone}`);
 
         try {
             // ✅ FIXED: API_URL ishlatildi
+            console.log(`[AUTH] Fetching ${API_URL}/api/auth/login ...`);
             const res = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

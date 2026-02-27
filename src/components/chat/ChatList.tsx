@@ -140,11 +140,24 @@ export default function ChatList({
             ? chats
             : (activeCategory === 'contacts'
                 ? contacts
-                : chats.filter(chat => {
+                : (chats || []).filter((chat: any) => {
                     if (activeCategory === 'user') return chat.type === 'private' || !chat.type;
                     return chat.type === activeCategory;
                 }));
 
+    const getCategoryUnreadCount = (catId: string) => {
+        if (catId === 'all') {
+            return (chats || []).reduce((acc: number, chat: any) => acc + (chat.unread || 0), 0);
+        }
+        if (catId === 'jobs' || catId === 'finance' || catId === 'services' || catId === 'communities') return 0;
+
+        return (chats || [])
+            .filter((chat: any) => {
+                if (catId === 'user') return chat.type === 'private' || !chat.type;
+                return chat.type === catId;
+            })
+            .reduce((acc: number, chat: any) => acc + (chat.unread || 0), 0);
+    };
 
     return (
         <div className={`h-full flex flex-col relative overflow-hidden select-none animate-fade-in glass-premium !rounded-none !border-y-0 !border-l-0 ${className || ''}`}>
@@ -194,21 +207,29 @@ export default function ChatList({
 
                 {/* Categories - Horizontally scrollable on all devices */}
                 <div className={`gap-4 overflow-x-auto px-4 py-3 no-scrollbar mask-overflow mb-2 flex-nowrap border-b border-white/5 ${hideCategories ? 'hidden lg:flex' : 'flex'}`}>
-                    {CATEGORIES.map(cat => (
-                        <button
-                            key={cat.id}
-                            onClick={() => handleCategoryChange(cat.id)}
-                            className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/40 scale-105' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'}`}
-                        >
-                            <div className="w-6 h-6">{cat.icon}</div>
-                        </button>
-                    ))}
+                    {CATEGORIES.map(cat => {
+                        const count = getCategoryUnreadCount(cat.id);
+                        return (
+                            <button
+                                key={cat.id}
+                                onClick={() => handleCategoryChange(cat.id)}
+                                className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 relative ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/40 scale-105' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'}`}
+                            >
+                                <div className="w-6 h-6">{cat.icon}</div>
+                                {count > 0 && (
+                                    <div className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 rounded-full bg-red-500 border-2 border-[#1a1c2e] flex items-center justify-center text-[9px] font-bold text-white px-1 shadow-lg">
+                                        {count > 99 ? '99+' : count}
+                                    </div>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-3 space-y-3 custom-scrollbar">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center pt-10 text-white/40">Loading...</div>
+                    <div className="flex flex-col items-center justify-center pt-10 text-white/40">Yuklanmoqda...</div>
                 ) : filteredChats.length > 0 ? (
                     filteredChats.map((chat, index) => {
                         const myId = currentUser?.id;
@@ -233,7 +254,7 @@ export default function ChatList({
                                                 if (avatar && avatar !== 'null' && avatar !== '' && avatar !== 'use_initials' && !isTrade) {
                                                     const src = avatar.startsWith('http') || avatar.startsWith('data:')
                                                         ? avatar
-                                                        : `${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/${avatar}`;
+                                                        : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/${avatar}`;
                                                     return (
                                                         <img
                                                             src={src}
@@ -286,3 +307,4 @@ export default function ChatList({
         </div >
     );
 }
+

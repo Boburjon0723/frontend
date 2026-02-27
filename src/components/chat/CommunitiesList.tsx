@@ -23,7 +23,7 @@ export default function CommunitiesList() {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
             let url = API_URL + '/api/chats/communities?';
             if (selectedRegion) url += 'region=' + encodeURIComponent(selectedRegion) + '&';
             if (searchQuery) url += 'q=' + encodeURIComponent(searchQuery) + '&';
@@ -46,7 +46,7 @@ export default function CommunitiesList() {
     const handleJoin = async (communityId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
             const res = await fetch(API_URL + '/api/chats/communities/' + communityId + '/join', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token }
@@ -123,9 +123,9 @@ export default function CommunitiesList() {
                                 <div>
                                     <div className="flex justify-between items-start mb-4">
                                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border border-white/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 ${c.category === 'Texnologiya' ? 'bg-blue-500/20 text-blue-400' :
-                                                c.category === 'Biznes' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                    c.category === 'Ta\'lim' ? 'bg-amber-500/20 text-amber-400' :
-                                                        'bg-purple-500/20 text-purple-400'
+                                            c.category === 'Biznes' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                c.category === 'Ta\'lim' ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-purple-500/20 text-purple-400'
                                             }`}>
                                             {c.category === 'Texnologiya' ? '💻' :
                                                 c.category === 'Biznes' ? '📊' :
@@ -134,8 +134,8 @@ export default function CommunitiesList() {
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg border ${c.category === 'Texnologiya' ? 'text-blue-400 bg-blue-400/10 border-blue-400/20' :
-                                                    c.category === 'Biznes' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
-                                                        'text-purple-400 bg-purple-400/10 border-purple-400/20'
+                                                c.category === 'Biznes' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
+                                                    'text-purple-400 bg-purple-400/10 border-purple-400/20'
                                                 }`}>
                                                 {c.category || 'Hamjamiyat'}
                                             </span>
@@ -167,8 +167,8 @@ export default function CommunitiesList() {
                                     disabled={isJoined}
                                     onClick={() => handleJoin(c.id || c._id)}
                                     className={`w-full py-3.5 rounded-2xl font-bold transition-all duration-300 ${isJoined
-                                            ? 'bg-white/5 text-white/30 cursor-default border border-white/5'
-                                            : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-500/20 active:scale-95'
+                                        ? 'bg-white/5 text-white/30 cursor-default border border-white/5'
+                                        : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-500/20 active:scale-95'
                                         }`}
                                 >
                                     {isJoined ? (
@@ -190,3 +190,4 @@ export default function CommunitiesList() {
         </div>
     );
 }
+

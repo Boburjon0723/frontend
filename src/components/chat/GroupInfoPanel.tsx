@@ -24,7 +24,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats/${chat.id || chat._id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -52,7 +52,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
         if (!chat) return;
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
             const res = await fetch(`${API_URL}/api/chats/${chat.id || chat._id}/participants`, {
                 method: 'POST',
                 headers: {
@@ -79,7 +79,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
     if (!chat) {
         return (
             <div className="h-full flex items-center justify-center text-white/30 text-sm">
-                Select a chat to view info
+                Ma'lumotlarni ko'rish uchun chatni tanlang
             </div>
         );
     }
@@ -101,7 +101,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
                 </div>
                 {/* Shared Media Placeholders (Future) */}
                 <div className="text-center text-white/30 text-sm mt-10">
-                    Shared media coming soon
+                    Media fayllar tez orada...
                 </div>
             </div>
         );
@@ -126,7 +126,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
                 </div>
                 <h2 className="text-xl font-bold text-white mb-1">{chat.name}</h2>
                 <p className="text-[var(--text-secondary)] text-sm">
-                    {loading ? 'Loading...' : `${participants.length} members`}
+                    {loading ? 'Yuklanmoqda...' : `${participants.length} ta a'zo`}
                 </p>
             </div>
 
@@ -139,13 +139,13 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
                     <div className="p-2 bg-blue-500/20 text-blue-400 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                     </div>
-                    <span className="text-xs">Add Member</span>
+                    <span className="text-xs">A'zo qo'shish</span>
                 </button>
                 <button className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white flex flex-col items-center gap-2 transition-colors">
                     <div className="p-2 bg-purple-500/20 text-purple-400 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                     </div>
-                    <span className="text-xs">Mute</span>
+                    <span className="text-xs">Ovozni o'chirish</span>
                 </button>
             </div>
 
@@ -153,7 +153,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
             {/* Members List */}
             <div className="px-3 flex-1">
                 <div className="flex justify-between items-center mb-2 px-1 sticky top-0 bg-[#788296]/10 backdrop-blur-md py-2 z-10 border-b border-white/5">
-                    <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Members</h3>
+                    <h3 className="text-sm font-semibold text-[var(--text-secondary)]">A'zolar</h3>
                 </div>
                 <div className="space-y-2 pb-4">
                     {participants.map((member: any) => (
@@ -177,7 +177,7 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
                     ))}
 
                     {participants.length === 0 && !loading && (
-                        <p className="text-center text-white/30 text-sm py-4">No members info</p>
+                        <p className="text-center text-white/30 text-sm py-4">A'zolar haqida ma'lumot yo'q</p>
                     )}
                 </div>
             </div>
@@ -192,3 +192,4 @@ export default function GroupInfoPanel({ chat, onClose }: GroupInfoPanelProps) {
         </div>
     );
 }
+

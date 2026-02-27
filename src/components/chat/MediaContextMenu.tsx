@@ -5,8 +5,6 @@ import React, { useEffect, useRef } from 'react';
 interface MediaContextMenuProps {
     x: number;
     y: number;
-    mediaUrl: string;
-    mediaType: 'image' | 'video';
     message: any;
     onClose: () => void;
     onReply?: () => void;
@@ -15,7 +13,7 @@ interface MediaContextMenuProps {
 }
 
 export default function MediaContextMenu({
-    x, y, mediaUrl, mediaType, message, onClose, onReply, onForward, onDelete
+    x, y, message, onClose, onReply, onForward, onDelete
 }: MediaContextMenuProps) {
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +37,11 @@ export default function MediaContextMenu({
     const adjustedY = typeof window !== 'undefined' && y + 320 > window.innerHeight ? y - 280 : y;
     const adjustedX = typeof window !== 'undefined' && x + 260 > window.innerWidth ? x - 240 : x;
 
+    const mediaUrl = message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/${message.text}`;
+    const isMedia = message.type === 'image' || message.type === 'video' || message.type === 'voice' || message.type === 'file';
+
     const handleSaveAs = () => {
+        if (!isMedia) return;
         const a = document.createElement('a');
         a.href = mediaUrl;
         a.download = mediaUrl.split('/').pop() || 'media';
@@ -50,22 +52,29 @@ export default function MediaContextMenu({
         onClose();
     };
 
-    const handleCopyImage = async () => {
+    const handleCopy = async () => {
         try {
-            const res = await fetch(mediaUrl);
-            const blob = await res.blob();
-            await navigator.clipboard.write([
-                new ClipboardItem({ [blob.type]: blob })
-            ]);
+            if (message.type === 'image') {
+                const res = await fetch(mediaUrl);
+                const blob = await res.blob();
+                await navigator.clipboard.write([
+                    new ClipboardItem({ [blob.type]: blob })
+                ]);
+            } else if (message.type === 'text') {
+                await navigator.clipboard.writeText(message.text);
+            } else {
+                await navigator.clipboard.writeText(mediaUrl);
+            }
         } catch {
-            // fallback: just copy URL
-            navigator.clipboard.writeText(mediaUrl);
+            navigator.clipboard.writeText(message.type === 'text' ? message.text : mediaUrl);
         }
         onClose();
     };
 
     const handleOpenFull = () => {
-        window.open(mediaUrl, '_blank');
+        if (isMedia) {
+            window.open(mediaUrl, '_blank');
+        }
         onClose();
     };
 
@@ -86,35 +95,37 @@ export default function MediaContextMenu({
                 </svg>
             ),
             label: 'Yuboruvchini ko\'rish',
-            action: () => { handleOpenFull(); },
+            action: () => { onClose(); },
         },
-        ...(mediaType === 'image' ? [{
+        ...(message.type === 'image' || message.type === 'text' ? [{
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
             ),
-            label: 'Rasmni nusxa olish',
-            action: handleCopyImage,
+            label: message.type === 'image' ? 'Rasmni nusxa olish' : 'Nusxa olish',
+            action: handleCopy,
         }] : []),
-        {
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-            ),
-            label: 'Saqlash',
-            action: handleSaveAs,
-        },
-        {
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-            ),
-            label: 'Katta ekranda ochish',
-            action: handleOpenFull,
-        },
+        ...(isMedia ? [
+            {
+                icon: (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                ),
+                label: 'Saqlash',
+                action: handleSaveAs,
+            },
+            {
+                icon: (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                ),
+                label: 'Katta ekranda ochish',
+                action: handleOpenFull,
+            }
+        ] : []),
         {
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

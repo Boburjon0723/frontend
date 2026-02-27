@@ -106,7 +106,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app'}/api/users/me`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/api/users/me`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -304,3 +304,4 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
         </div>
     );
 }
+

@@ -2,14 +2,21 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "Mali Platform Messenger Desktop App",
+  "author": "Mali Team",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
+    "dev:desktop": "concurrently \"next dev\" \"electron .\"",
     "build": "next build",
+    "export": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dist": "npm run export && electron-builder"
   },
   "dependencies": {
     "classnames": "^2.5.1",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.5",
     "react": "19.2.3",
@@ -21,9 +28,35 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.5",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.mali.messenger",
+    "productName": "MaliDesktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": "nsis",
+      "icon": "public/favicon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    },
+    "cscLink": null
   }
 }

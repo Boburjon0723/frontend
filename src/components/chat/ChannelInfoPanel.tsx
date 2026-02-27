@@ -31,7 +31,7 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend-production-6de74.up.railway.app';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const res = await fetch(`${API_URL}/api/chats/${chat.id || chat._id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -82,7 +82,7 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
 
                     <h2 className="text-xl font-bold text-white mt-4 text-center">{chat.name}</h2>
                     <p className="text-white/40 text-sm mt-1">
-                        {subscribersCount} подписчика
+                        {subscribersCount} obunachi
                     </p>
                 </div>
 
@@ -90,19 +90,19 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
                 <div className="flex justify-center gap-4 px-6 w-full mb-8">
                     {isOwner ? (
                         <>
-                            <ActionButton icon={<Volume2 className="h-5 w-5" />} label="Звук" />
+                            <ActionButton icon={<Volume2 className="h-5 w-5" />} label="Ovoz" />
                             <ActionButton
                                 icon={<Sliders className="h-5 w-5" />}
-                                label="Управление"
+                                label="Boshqaruv"
                                 onClick={() => setShowEditModal(true)}
                             />
-                            <ActionButton icon={<Gift className="h-5 w-5" />} label="Подарок" />
+                            <ActionButton icon={<Gift className="h-5 w-5" />} label="Sovg'a" />
                         </>
                     ) : (
                         <>
-                            <ActionButton icon={<Volume2 className="h-5 w-5" />} label="Звук" />
-                            <ActionButton icon={<Gift className="h-5 w-5" />} label="Подарок" />
-                            <ActionButton icon={<LogOut className="h-5 w-5" />} label="Покинуть" variant="danger" />
+                            <ActionButton icon={<Volume2 className="h-5 w-5" />} label="Ovoz" />
+                            <ActionButton icon={<Gift className="h-5 w-5" />} label="Sovg'a" />
+                            <ActionButton icon={<LogOut className="h-5 w-5" />} label="Chiqish" variant="danger" />
                         </>
                     )}
                 </div>
@@ -115,16 +115,16 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
                         <>
                             <MenuItem
                                 icon={<Users className="h-5 w-5" />}
-                                label={`${subscribersCount} подписчика`}
+                                label={`${subscribersCount} obunachi`}
                                 rightIcon={<Plus className="h-4 w-4" />}
                             />
                             <MenuItem
                                 icon={<Shield className="h-5 w-5" />}
-                                label={`${adminCount} администратор`}
+                                label={`${adminCount} administrator`}
                             />
                             <MenuItem
                                 icon={<LogOut className="h-5 w-5 text-red-400" />}
-                                label="Покинуть канал"
+                                label="Kanalni tark etish"
                                 className="text-red-400"
                             />
                         </>
@@ -132,16 +132,16 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
                         <>
                             <MenuItem
                                 icon={<ImageIcon className="h-5 w-5" />}
-                                label="1 фотография"
+                                label="1 ta fotosurat"
                             />
                             <div className="h-px bg-white/5 mx-2 my-2" />
                             <MenuItem
                                 icon={<LogOut className="h-5 w-5" />}
-                                label="Покинуть канал"
+                                label="Kanalni tark etish"
                             />
                             <MenuItem
                                 icon={<AlertCircle className="h-5 w-5 text-red-500" />}
-                                label="Пожаловаться"
+                                label="Shikoyat qilish"
                                 className="text-red-500"
                             />
                         </>
@@ -151,7 +151,7 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
                 {/* Description if exists */}
                 {chat.description && (
                     <div className="w-full px-6 py-4 mt-4 border-t border-white/5">
-                        <h3 className="text-[11px] font-bold text-white/30 uppercase tracking-wider mb-2">Описание</h3>
+                        <h3 className="text-[11px] font-bold text-white/30 uppercase tracking-wider mb-2">Tavsif</h3>
                         <p className="text-sm text-white/70 leading-relaxed">{chat.description}</p>
                     </div>
                 )}
@@ -202,3 +202,4 @@ function MenuItem({ icon, label, rightIcon, className = "" }: { icon: React.Reac
         </button>
     );
 }
+
