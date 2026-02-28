@@ -264,7 +264,12 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
             });
         }
 
+        setBookings((prev: any[]) => prev.filter(b => b.id !== booking.id));
         alert(`${booking.student_name || 'Talaba'} qabul qilindi! Havola nusxalandi va talabaga bildirishnoma yuborildi.`);
+    };
+
+    const handleRejectBooking = (bookingId: string) => {
+        setBookings((prev: any[]) => prev.filter(b => b.id !== bookingId));
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -453,6 +458,8 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                     attendees, setAttendees,
                     handleCreateQuiz,
                     handleBroadcastQuiz,
+                    handleAcceptBooking,
+                    handleRejectBooking,
                     handleFileUpload,
                     handleEndSession,
                     handleToggleMic,
@@ -501,6 +508,8 @@ function DashboardContent({
     attendees, setAttendees,
     handleCreateQuiz,
     handleBroadcastQuiz,
+    handleAcceptBooking,
+    handleRejectBooking,
     handleFileUpload,
     handleEndSession,
     handleToggleMic,
@@ -701,7 +710,7 @@ function DashboardContent({
                                             >
                                                 ACCEPT
                                             </button>
-                                            <button className="flex-1 py-1 bg-white/5 hover:bg-white/10 text-slate-400 text-[9px] font-bold rounded-lg transition-colors">LATER</button>
+                                            <button onClick={() => handleRejectBooking(booking.id)} className="flex-1 py-1 bg-white/5 hover:bg-white/10 text-slate-400 text-[9px] font-bold rounded-lg transition-colors">LATER</button>
                                         </div>
                                     </div>
                                 ))
