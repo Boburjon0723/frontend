@@ -100,6 +100,8 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
     const [loading, setLoading] = useState(false);
     const [selectedExpert, setSelectedExpert] = useState<any>(null);
     const [showJobForm, setShowJobForm] = useState(false);
+    const [isBooking, setIsBooking] = useState(false);
+    const [bookingSuccess, setBookingSuccess] = useState(false);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
 
@@ -158,6 +160,39 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
     const handleContact = (expert: any) => {
         if (onStartChat) onStartChat(expert);
         setSelectedExpert(null);
+    };
+
+    const handleBook = async (expert: any) => {
+        setIsBooking(true);
+        try {
+            const token = localStorage.getItem('token');
+            const amount = parseFloat(expert.hourly_rate || expert.service_price || '0');
+
+            const res = await fetch(`${API_URL}/api/wallet/book`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ expertId: expert.id, amount })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                setBookingSuccess(true);
+                setTimeout(() => {
+                    setBookingSuccess(false);
+                    setSelectedExpert(null);
+                }, 3000);
+            } else {
+                alert(data.message || 'Xatolik yuz berdi. Balansingizni tekshiring.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Tarmoq xatosi');
+        } finally {
+            setIsBooking(false);
+        }
     };
 
     return (
@@ -466,14 +501,27 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="pt-4 flex gap-3">
-                                <button onClick={() => handleContact(selectedExpert)} className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-3">
-                                    <MessageSquare className="h-5 w-5" />
-                                    {mainTab === 'experts' ? 'Mutaxassis bilan bog\'lanish' : 'Bog\'lanish'}
-                                </button>
-                                <button onClick={() => setSelectedExpert(null)} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all">
-                                    Yopish
-                                </button>
+                            <div className="pt-4 flex flex-col gap-3">
+                                {mainTab === 'experts' && (
+                                    <button
+                                        onClick={() => handleBook(selectedExpert)}
+                                        disabled={isBooking || bookingSuccess || !(selectedExpert.hourly_rate || selectedExpert.service_price)}
+                                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                    >
+                                        <DollarSign className="h-5 w-5" />
+                                        {bookingSuccess ? "So'rov Yuborildi (Mablag' Kafillandi)" : "Darsga yozilish (Kafillash)"}
+                                    </button>
+                                )}
+
+                                <div className="flex gap-3">
+                                    <button onClick={() => handleContact(selectedExpert)} className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-3">
+                                        <MessageSquare className="h-5 w-5" />
+                                        {mainTab === 'experts' ? 'Mutaxassis bilan bog\'lanish' : 'Bog\'lanish'}
+                                    </button>
+                                    <button onClick={() => setSelectedExpert(null)} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all">
+                                        Yopish
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </GlassCard>

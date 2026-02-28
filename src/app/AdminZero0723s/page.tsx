@@ -18,6 +18,8 @@ export default function AdminPanel() {
     const [topUps, setTopUps] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [pendingExperts, setPendingExperts] = useState([]);
+    const [verifiedExperts, setVerifiedExperts] = useState([]);
+    const [expertTab, setExpertTab] = useState('pending'); // 'pending' | 'verified'
     const [jobCategories, setJobCategories] = useState([]);
     const [newCategory, setNewCategory] = useState({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
 
@@ -83,11 +85,12 @@ export default function AdminPanel() {
     const fetchData = async (token: string) => {
         setLoading(true);
         try {
-            const [usersRes, topUpsRes, txRes, expertsRes, categoriesRes] = await Promise.all([
+            const [usersRes, topUpsRes, txRes, expertsRes, verifiedRes, categoriesRes] = await Promise.all([
                 fetch(`${API_URL}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${API_URL}/api/admin/topups`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${API_URL}/api/admin/transactions`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${API_URL}/api/admin/experts/pending`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${API_URL}/api/admin/experts/verified`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${API_URL}/api/jobs/categories`)
             ]);
 
@@ -95,6 +98,7 @@ export default function AdminPanel() {
             if (topUpsRes.ok) setTopUps(await topUpsRes.json());
             if (txRes.ok) setTransactions(await txRes.json());
             if (expertsRes.ok) setPendingExperts(await expertsRes.json());
+            if (verifiedRes.ok) setVerifiedExperts(await verifiedRes.json());
             if (categoriesRes.ok) setJobCategories(await categoriesRes.json());
         } catch (error) {
             console.error(error);
@@ -292,7 +296,13 @@ export default function AdminPanel() {
                             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                         >
                             {tab.label}
-                            {tab.count !== null && (
+                            {tab.id === 'experts' ? (
+                                pendingExperts.length > 0 && (
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white`}>
+                                        {pendingExperts.length}
+                                    </span>
+                                )
+                            ) : tab.count !== null && (
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-slate-800'}`}>
                                     {tab.count}
                                 </span>
@@ -457,10 +467,15 @@ export default function AdminPanel() {
                     </div>
                 )}
 
-                {/* Expert Applications Tab */}
+                {/* Expert Management Tab */}
                 {activeTab === 'experts' && (
                     <div className="space-y-6 animate-fade-in">
-                        {pendingExperts.map((exp: any) => (
+                        <div className="flex gap-4 mb-6 bg-white/5 p-1 rounded-2xl w-fit">
+                            <button onClick={() => setExpertTab('pending')} className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${expertTab === 'pending' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Yangi arizalar ({pendingExperts.length})</button>
+                            <button onClick={() => setExpertTab('verified')} className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${expertTab === 'verified' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Tasdiqlanganlar ({verifiedExperts.length})</button>
+                        </div>
+
+                        {(expertTab === 'pending' ? pendingExperts : verifiedExperts).map((exp: any) => (
                             <div key={exp.id} className="bg-slate-900/80 backdrop-blur-md p-8 rounded-[40px] border border-white/5 flex flex-col gap-8 shadow-2xl hover:border-indigo-500/30 transition-all">
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                     <div className="flex gap-6 items-start">
@@ -548,17 +563,28 @@ export default function AdminPanel() {
                                 </div>
 
                                 <div className="flex gap-4 pt-4 border-t border-white/5">
-                                    <button onClick={() => handleVerifyExpert(exp.id, 'approved')} className="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] py-4 rounded-[24px] font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                        Ekspertni tasdiqlash
-                                    </button>
-                                    <button onClick={() => handleVerifyExpert(exp.id, 'rejected')} className="px-8 py-4 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-[24px] font-bold border border-red-500/20 transition-all">
-                                        Rad etish
-                                    </button>
+                                    {exp.verified_status === 'pending' ? (
+                                        <>
+                                            <button onClick={() => handleVerifyExpert(exp.id, 'approved')} className="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] py-4 rounded-[24px] font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                Ekspertni tasdiqlash
+                                            </button>
+                                            <button onClick={() => handleVerifyExpert(exp.id, 'rejected')} className="px-8 py-4 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-[24px] font-bold border border-red-500/20 transition-all">
+                                                Rad etish
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="flex-1 p-4 rounded-[24px] bg-white/5 flex items-center justify-center gap-4">
+                                            <span className={`font-bold uppercase tracking-widest text-sm ${exp.verified_status === 'approved' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                Status: {exp.verified_status === 'approved' ? 'Tasdiqlangan' : 'Rad etilgan'}
+                                            </span>
+                                            <button onClick={() => handleVerifyExpert(exp.id, exp.verified_status === 'approved' ? 'rejected' : 'approved')} className="text-[10px] px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all">Statusni o'zgartirish</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
-                        {pendingExperts.length === 0 && (
+                        {(expertTab === 'pending' ? pendingExperts : verifiedExperts).length === 0 && (
                             <div className="bg-slate-900/50 p-20 rounded-[40px] border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
                                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -644,7 +670,7 @@ export default function AdminPanel() {
                 .animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
                 .animate-grow-x { animation: grow-x 0.3s ease-out forwards; }
             `}</style>
-        </div>
+        </div >
     );
 }
 

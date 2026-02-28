@@ -98,6 +98,8 @@ interface ChatListProps {
     onSearchChange: (q: string) => void;
     searchResults: any[];
     isSearching: boolean;
+    isExpertMode?: boolean;
+    onToggleExpertMode?: () => void;
 }
 
 export default function ChatList({
@@ -127,7 +129,9 @@ export default function ChatList({
     searchQuery,
     onSearchChange,
     searchResults,
-    isSearching
+    isSearching,
+    isExpertMode,
+    onToggleExpertMode
 }: ChatListProps) {
     const handleCategoryChange = (catId: string) => {
         if (onCategoryChange) onCategoryChange(catId);
@@ -160,7 +164,7 @@ export default function ChatList({
     };
 
     return (
-        <div className={`h-full flex flex-col relative overflow-hidden select-none animate-fade-in glass-premium !rounded-none !border-y-0 !border-l-0 ${className || ''}`}>
+        <div className={`h-full flex flex-col relative overflow-hidden select-none animate-fade-in glass-premium rounded-3xl border border-white/10 ${className || ''}`}>
             {/* iOS Style Sidebar Drawer */}
 
             {/* Sticky Header / Search / Categories Container */}
@@ -181,6 +185,16 @@ export default function ChatList({
                         >
                             <PenSquare className="h-5 w-5" />
                         </button>
+
+                        {currentUser?.is_expert && (
+                            <button
+                                onClick={onToggleExpertMode}
+                                title={isExpertMode ? "Mijoz ko'rinishi" : "Ekspert paneli"}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${isExpertMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/10 text-white/50 hover:bg-white/20'}`}
+                            >
+                                <Layout className="h-5 w-5" />
+                            </button>
+                        )}
                     </div>
 
                     <div className="relative group">
@@ -206,16 +220,16 @@ export default function ChatList({
                 </div>
 
                 {/* Categories - Horizontally scrollable on all devices */}
-                <div className={`gap-4 overflow-x-auto px-4 py-3 no-scrollbar mask-overflow mb-2 flex-nowrap border-b border-white/5 ${hideCategories ? 'hidden lg:flex' : 'flex'}`}>
+                <div className={`flex gap-4 overflow-x-auto no-scrollbar mask-overflow mb-2 flex-nowrap shrink-0 px-4 py-3 border-b border-white/5 ${hideCategories ? 'hidden lg:flex' : 'flex'}`}>
                     {CATEGORIES.map(cat => {
                         const count = getCategoryUnreadCount(cat.id);
                         return (
                             <button
                                 key={cat.id}
                                 onClick={() => handleCategoryChange(cat.id)}
-                                className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 relative ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/40 scale-105' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'}`}
+                                className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 relative ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
                             >
-                                <div className="w-6 h-6">{cat.icon}</div>
+                                <div className="w-5 h-5">{cat.icon}</div>
                                 {count > 0 && (
                                     <div className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 rounded-full bg-red-500 border-2 border-[#1a1c2e] flex items-center justify-center text-[9px] font-bold text-white px-1 shadow-lg">
                                         {count > 99 ? '99+' : count}

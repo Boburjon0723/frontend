@@ -19,6 +19,7 @@ import ContactsModal from "@/components/chat/ContactsModal";
 import { useSocket } from "@/context/SocketContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationPopover from "@/components/chat/NotificationPopover";
+import SpecialistDashboard from "@/components/dashboard/SpecialistDashboard";
 import {
     Menu as MenuIcon,
     PenSquare,
@@ -53,6 +54,7 @@ export default function MessagesPage() {
     const [contacts, setContacts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showRightPanel, setShowRightPanel] = useState(true);
+    const [isExpertMode, setIsExpertMode] = useState(false);
 
     // Search State
     const [searchQuery, setSearchQuery] = useState("");
@@ -526,7 +528,7 @@ export default function MessagesPage() {
                 )}
 
                 {/* Left Panel: ChatList */}
-                <aside className={` ${showDetail ? 'hidden lg:block' : 'flex-1'} lg:w-80 xl:w-96 lg:h-full flex-shrink-0 flex flex-col overflow-hidden `}>
+                <aside className={` ${showDetail ? 'hidden lg:block' : (isExpertMode ? 'flex-none' : 'flex-1')} ${isExpertMode ? 'lg:w-0 lg:p-0 w-0 p-0 opacity-0 pointer-events-none absolute lg:relative z-0' : 'lg:w-[380px] lg:p-3 w-full p-2 opacity-100 relative z-10'} transition-all duration-500 ease-in-out lg:h-full flex-shrink-0 flex flex-col overflow-hidden `}>
                     <ChatList
                         activeCategory={activeCategory}
                         onCategoryChange={setActiveCategory}
@@ -534,6 +536,7 @@ export default function MessagesPage() {
                             setSelectedChat(chat);
                             if (activeCategory !== 'all') setActiveCategory('all');
                             if (window.innerWidth < 1024) setShowRightPanel(false);
+                            setIsExpertMode(false); // Turn off expert mode when a chat is selected
                         }}
                         hideHeader={true}
                         hideCategories={true}
@@ -553,6 +556,11 @@ export default function MessagesPage() {
                         onSearchChange={handleSearch}
                         searchResults={searchResults}
                         isSearching={isSearching}
+                        isExpertMode={isExpertMode}
+                        onToggleExpertMode={() => {
+                            setIsExpertMode(!isExpertMode);
+                            setSelectedChat(null); // Clear selected chat when switching to expert mode
+                        }}
                     />
                 </aside>
 
@@ -634,21 +642,31 @@ export default function MessagesPage() {
                                             />
                                         )
                                             : activeCategory === 'profile_edit' ? <ProfileEditor onClose={() => setActiveCategory('profile')} onSave={() => setActiveCategory('profile')} />
-                                                : (selectedChat ? (
+                                                : isExpertMode && currentUser?.is_expert ? (
+                                                    <div className="w-full h-full animate-in fade-in zoom-in-95 duration-500">
+                                                        <SpecialistDashboard
+                                                            user={currentUser}
+                                                            sessionId={selectedChat?.id || 'demo-session-id'}
+                                                            socket={socket}
+                                                            onBack={() => setIsExpertMode(false)}
+                                                        />
+                                                    </div>
+                                                ) : (selectedChat ? (
                                                     <ChatWindow
                                                         chat={selectedChat}
                                                         onToggleInfo={() => setShowRightPanel(!showRightPanel)}
                                                         onBack={() => setSelectedChat(null)}
                                                         onMarkAsRead={handleMarkAsRead}
                                                     />
-                                                ) : (
-                                                    <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 bg-black/10 backdrop-blur-sm">
-                                                        <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                                                            <MessageSquare className="h-10 w-10 opacity-20" />
+                                                )
+                                                    : (
+                                                        <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 bg-black/10 backdrop-blur-sm">
+                                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
+                                                                <MessageSquare className="h-10 w-10 opacity-20" />
+                                                            </div>
+                                                            <p className="text-sm font-medium">Suhbatni boshlash uchun kontakt tanlang</p>
                                                         </div>
-                                                        <p className="text-sm font-medium">Suhbatni boshlash uchun kontakt tanlang</p>
-                                                    </div>
-                                                ))}
+                                                    ))}
                 </main>
 
                 {/* Mobile Bottom Navigation - V3 Pro Style, hidden when chat is open */}

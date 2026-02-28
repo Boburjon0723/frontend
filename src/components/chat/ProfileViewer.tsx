@@ -61,7 +61,11 @@ export default function ProfileViewer({
 }: ProfileViewerProps) {
     const { socket } = useSocket();
     const [localUser, setLocalUser] = useState<any>(null);
-    const [currentView, setCurrentView] = useState<'main' | 'chat_settings'>('main');
+    const [currentView, setCurrentView] = useState<'main' | 'chat_settings' | 'wallet'>('main');
+
+    // Wallet State
+    const [walletData, setWalletData] = useState({ available: 0, locked: 0, subscription_end_date: null as string | null });
+    const [isSubscribing, setIsSubscribing] = useState(false);
 
     // Language State
     const [language, setLanguage] = useState<'uz' | 'ru' | 'en'>('ru');
@@ -306,6 +310,51 @@ export default function ProfileViewer({
         }
     };
 
+    const fetchWallet = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/api/wallet/balance`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setWalletData({
+                        available: data.data.available_balance || 0,
+                        locked: data.data.locked_balance || 0,
+                        subscription_end_date: user.subscription_end_date || null
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch wallet', e);
+        }
+    };
+
+    const handleSubscribe = async () => {
+        setIsSubscribing(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/api/wallet/subscribe`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert("Muvaffaqiyatli obuna bo'ldingiz!");
+                fetchWallet();
+                setVerifiedStatus('pending');
+                setIsExpert(true);
+            } else {
+                alert(data.message || "Obuna bo'lishda xatolik yuz berdi. Balansingizni tekshiring.");
+            }
+        } catch (e) {
+            alert('Tarmoq xatosi');
+        } finally {
+            setIsSubscribing(false);
+        }
+    };
+
     // --- RENDERERS ---
 
     const renderProfile = () => (
@@ -533,9 +582,71 @@ export default function ProfileViewer({
         </GlassCard>
     );
 
+    const renderWallet = () => (
+        <GlassCard
+            className="w-full h-full lg:h-auto lg:max-w-[420px] !p-0 border-none lg:border lg:border-white/20 flex flex-col lg:max-h-[85vh] overflow-hidden rounded-none lg:!rounded-[25px] shadow-3xl animate-scale-up !bg-white/5 backdrop-blur-[40px]"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="flex items-center gap-4 p-4 px-6 border-b border-white/10">
+                <button onClick={() => setCurrentView('main')} className="text-white/40 hover:text-white transition-colors p-1"><X className="h-6 w-6 rotate-90" /></button>
+                <h2 className="text-white font-medium text-[19px]">Mening Hamyonim</h2>
+            </div>
+
+            <div className="overflow-y-auto custom-scrollbar flex-1 p-6 space-y-6 pb-10">
+                {/* Balance Cards */}
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                    <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                    <div className="relative z-10 flex flex-col gap-1 text-center">
+                        <span className="text-white/60 text-xs font-black uppercase tracking-widest">Mavjud Balans</span>
+                        <div className="flex items-center justify-center gap-2">
+                            <DollarSign className="h-8 w-8 text-white" />
+                            <span className="text-white font-black text-4xl">{walletData.available} <span className="text-lg opacity-60">MALI</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-white/5 rounded-xl text-yellow-500"><Lock className="h-5 w-5" /></div>
+                        <div className="flex flex-col">
+                            <span className="text-white font-bold">Kafillangan bandlovlar</span>
+                            <span className="text-white/40 text-xs text-left">Darslar o'tilgunga qadar saqlanadi</span>
+                        </div>
+                    </div>
+                    <div className="text-yellow-500 font-black">{walletData.locked} MALI</div>
+                </div>
+
+                {/* Subscription Card */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400"><Award className="h-5 w-5" /></div>
+                        <div className="flex flex-col h-full items-start justify-center">
+                            <span className="text-white font-bold leading-none">Mutaxassis Obunasi</span>
+                            <span className="text-blue-400 font-black text-xs uppercase tracking-widest leading-none mt-1">20 MALI / oy</span>
+                        </div>
+                    </div>
+
+                    <p className="text-white/40 text-[11.5px] leading-relaxed pb-2">
+                        Obuna - mutaxassislar ro'yxatida ko'rinish va mijozlardan to'lovlarni tizim ichida qabul qilish imkonini beradi.
+                    </p>
+
+                    <GlassButton
+                        onClick={handleSubscribe}
+                        disabled={isSubscribing || (!isExpert && walletData.available < 20)}
+                        className={`w-full !rounded-xl py-3.5 font-bold transition-all ${isExpert && verifiedStatus !== 'none' ? '!bg-white/10 !text-white/40 cursor-not-allowed' : '!bg-emerald-600 !text-white'}`}
+                    >
+                        {isSubscribing ? 'Jarayonda...' : (isExpert && verifiedStatus !== 'none' ? 'Obuna Faol' : 'Obunani faollashtirish (20 MALI)')}
+                    </GlassButton>
+                </div>
+
+            </div>
+        </GlassCard>
+    );
+
     const renderSettings = () => {
         const SETTINGS_ITEMS = [
             { id: 'account', icon: <User className="h-5 w-5" />, label: 'Мой аккаунт', subtext: "Ism va familiyani o'zgartirish" },
+            { id: 'wallet', icon: <DollarSign className="h-5 w-5 text-emerald-400" />, label: 'Mening Hamyonim', subtext: "Balans, Escrow va Obuna" },
             { id: 'notifications', icon: <Bell className="h-5 w-5" />, label: 'Уведомления и звуки' },
             { id: 'privacy', icon: <Lock className="h-5 w-5" />, label: 'Конфиденциальность' },
             { id: 'chats', icon: <MessageSquare className="h-5 w-5" />, label: 'Настройки чатов' },
@@ -543,7 +654,7 @@ export default function ProfileViewer({
             { id: 'advanced', icon: <Sliders className="h-5 w-5" />, label: 'Продвинутые настройки' },
             { id: 'call', icon: <Volume2 className="h-5 w-5" />, label: 'Звук и камера' },
             { id: 'battery', icon: <Zap className="h-5 w-5" />, label: 'Заряд батареи и анимация' },
-            ...(user.role === 'admin' ? [{ id: 'admin', icon: <Shield className="h-5 w-5 text-emerald-400" />, label: 'Admin Panel', subtext: "Expertlarni boshqarish" }] : []),
+            ...(user.role === 'admin' ? [{ id: 'admin', icon: <Shield className="h-5 w-5 text-emerald-400" />, label: 'Admin Panel', subtext: "Ekspertlarni boshqarish" }] : []),
         ];
 
         return (
@@ -595,6 +706,10 @@ export default function ProfileViewer({
                                 className="w-full flex items-center gap-5 px-6 py-3.5 hover:bg-white/5 transition-all group text-left"
                                 onClick={() => {
                                     if (item.id === 'account') { setEditFirstName(user.name || ""); setEditLastName(user.surname || ""); setShowNameModal(true); }
+                                    else if (item.id === 'wallet') {
+                                        setCurrentView('wallet');
+                                        fetchWallet();
+                                    }
                                     else if (item.id === 'chats') { setCurrentView('chat_settings'); }
                                     else if (item.id === 'admin') { window.open('/AdminZero0723s', '_blank'); }
                                 }}
@@ -618,7 +733,9 @@ export default function ProfileViewer({
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center lg:p-4 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            {currentView === 'chat_settings' ? renderChatSettings() : (mode === 'profile' ? renderProfile() : renderSettings())}
+            {currentView === 'chat_settings' ? renderChatSettings() :
+                currentView === 'wallet' ? renderWallet() :
+                    (mode === 'profile' ? renderProfile() : renderSettings())}
 
             {/* SHARED MODALS */}
             {showLanguageModal && (

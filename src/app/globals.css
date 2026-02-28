@@ -307,3 +307,17 @@ body::before {
 .animate-scale-in {
   animation: scale-in 0.2s ease-out forwards;
 }
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(59, 130, 246, 0.4);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.highlight-message {
+  animation: highlight-pulse 2s ease-out;
+}
