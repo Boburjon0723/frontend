@@ -25,6 +25,7 @@ import {
     Menu,
     MoreHorizontal
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 import { Track } from 'livekit-client';
 
 interface StudentDashboardProps {
@@ -83,10 +84,12 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
     useEffect(() => {
         const fetchToken = async () => {
             try {
-                const res = await fetch(`/api/livekit/token?room=${sessionId}&username=${encodeURIComponent(user?.name || 'Talaba')}`);
+                const res = await apiFetch(`/api/livekit/token?room=${sessionId}&username=${encodeURIComponent(user?.name || 'Talaba')}`);
                 if (res.ok) {
                     const data = await res.json();
                     setToken(data.token);
+                } else {
+                    console.error("Token fetch failed with status:", res.status);
                 }
             } catch (err) {
                 console.error("Token xatosi:", err);
