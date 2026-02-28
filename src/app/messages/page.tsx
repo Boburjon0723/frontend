@@ -572,6 +572,9 @@ export default function MessagesPage() {
                             setIsExpertMode(!isExpertMode);
                             setSelectedChat(null); // Clear selected chat when switching to expert mode
                         }}
+                        showNotifications={showNotifications}
+                        setShowNotifications={setShowNotifications}
+                        unreadCount={unreadCount}
                     />
                 </aside>
 

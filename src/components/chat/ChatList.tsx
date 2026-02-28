@@ -33,7 +33,8 @@ import {
     Bookmark,
     HelpCircle,
     Layout,
-    PenSquare
+    PenSquare,
+    Bell
 } from 'lucide-react';
 
 export const CATEGORIES = [
@@ -100,6 +101,9 @@ interface ChatListProps {
     isSearching: boolean;
     isExpertMode?: boolean;
     onToggleExpertMode?: () => void;
+    showNotifications?: boolean;
+    setShowNotifications?: (show: boolean) => void;
+    unreadCount?: number;
 }
 
 export default function ChatList({
@@ -131,7 +135,10 @@ export default function ChatList({
     searchResults,
     isSearching,
     isExpertMode,
-    onToggleExpertMode
+    onToggleExpertMode,
+    showNotifications,
+    setShowNotifications,
+    unreadCount = 0
 }: ChatListProps) {
     const handleCategoryChange = (catId: string) => {
         if (onCategoryChange) onCategoryChange(catId);
@@ -195,6 +202,19 @@ export default function ChatList({
                                 <Layout className="h-5 w-5" />
                             </button>
                         )}
+
+                        {/* DESKTOP NOTIFICATION BELL */}
+                        <button
+                            onClick={() => setShowNotifications && setShowNotifications(!showNotifications)}
+                            className={`w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all duration-300 relative group hidden lg:flex ${showNotifications ? 'ring-2 ring-blue-500/50 bg-white/20' : ''}`}
+                        >
+                            <Bell className={`h-5 w-5 transition-transform duration-300 ${unreadCount > 0 ? 'group-hover:rotate-12' : ''}`} />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-gradient-to-r from-red-500 to-pink-600 rounded-full text-[9px] flex items-center justify-center font-black shadow-lg border border-white/20 pulse-notification">
+                                    {unreadCount}
+                                </span>
+                            )}
+                        </button>
                     </div>
 
                     <div className="relative group">
