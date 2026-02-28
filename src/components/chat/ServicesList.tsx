@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Clock, DollarSign, Globe, Briefcase, GraduationCap, Building2, MapPin, X, MessageSquare, Video, ShieldCheck, Search, Filter, Monitor, Map, Plus, ChevronRight, Gavel, HeartPulse, Wrench, Zap, Hammer, Camera, Car, Calculator, Stethoscope, User } from 'lucide-react';
+import { Award, Clock, DollarSign, Globe, Briefcase, GraduationCap, Building2, MapPin, X, Check, MessageSquare, Video, ShieldCheck, Search, Filter, Monitor, Map, Plus, ChevronRight, Gavel, HeartPulse, Wrench, Zap, Hammer, Camera, Car, Calculator, Stethoscope, User } from 'lucide-react';
+
 import { GlassCard } from '../ui/GlassCard';
 import JobForms from './JobForms';
 
@@ -180,11 +181,13 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
 
             if (res.ok && data.success) {
                 setBookingSuccess(true);
+                // Clear success message after 4 seconds
                 setTimeout(() => {
                     setBookingSuccess(false);
                     setSelectedExpert(null);
-                }, 3000);
+                }, 4000);
             } else {
+
                 alert(data.message || 'Xatolik yuz berdi. Balansingizni tekshiring.');
             }
         } catch (e) {
@@ -503,15 +506,30 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                             {/* Action Buttons */}
                             <div className="pt-4 flex flex-col gap-3">
                                 {mainTab === 'experts' && (
-                                    <button
-                                        onClick={() => handleBook(selectedExpert)}
-                                        disabled={isBooking || bookingSuccess || !(selectedExpert.hourly_rate || selectedExpert.service_price)}
-                                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                                    >
-                                        <DollarSign className="h-5 w-5" />
-                                        {bookingSuccess ? "So'rov Yuborildi (Mablag' Kafillandi)" : "Darsga yozilish (Kafillash)"}
-                                    </button>
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={() => handleBook(selectedExpert)}
+                                            disabled={isBooking || bookingSuccess || !(selectedExpert.hourly_rate || selectedExpert.service_price)}
+                                            className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                        >
+                                            <DollarSign className="h-5 w-5" />
+                                            {isBooking ? 'Kafillanmoqda...' : (bookingSuccess ? "So'rov Yuborildi" : "Darsga yozilish (Kafillash)")}
+                                        </button>
+
+                                        {bookingSuccess && (
+                                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 animate-fade-in mb-3">
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                                                    <Check className="h-4 w-4 text-white" />
+                                                </div>
+                                                <div className="text-emerald-400 text-[11px] font-bold leading-tight">
+                                                    Mentorga so'rov yuborildi. <br />
+                                                    MALI kafillikda (escrow) saqlanmoqda.
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
+
 
                                 <div className="flex gap-3">
                                     <button onClick={() => handleContact(selectedExpert)} className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-3">
