@@ -20,6 +20,7 @@ import { useSocket } from "@/context/SocketContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationPopover from "@/components/chat/NotificationPopover";
 import SpecialistDashboard from "@/components/dashboard/SpecialistDashboard";
+import StudentDashboard from "@/components/dashboard/StudentDashboard";
 import {
     Menu as MenuIcon,
     PenSquare,
@@ -59,6 +60,17 @@ function MessagesPageContent() {
     const [isExpertMode, setIsExpertMode] = useState(false);
     const searchParams = useSearchParams();
     const roomParam = searchParams.get('room');
+
+    // If student is joining a room directly
+    if (roomParam) {
+        return (
+            <StudentDashboard
+                user={currentUser}
+                sessionId={roomParam}
+                onLeave={() => window.location.href = '/messages'}
+            />
+        );
+    }
 
     // Search State
     const [searchQuery, setSearchQuery] = useState("");
