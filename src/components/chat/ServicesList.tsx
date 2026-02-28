@@ -509,7 +509,7 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                                     <div className="space-y-3">
                                         <button
                                             onClick={() => handleBook(selectedExpert)}
-                                            disabled={isBooking || bookingSuccess || !(selectedExpert.hourly_rate || selectedExpert.service_price)}
+                                            disabled={isBooking || bookingSuccess}
                                             className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                         >
                                             <DollarSign className="h-5 w-5" />

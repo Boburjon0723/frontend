@@ -314,8 +314,10 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.signal));
                     } else if (data.signal.candidate || (typeof data.signal === 'string' && data.signal.includes('candidate'))) {
                         // Handle candidate relay
-                        const candidate = data.signal.candidate ? data.signal : data.signal;
-                        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                        if (pcRef.current.remoteDescription) {
+                            const candidate = data.signal.candidate ? data.signal : data.signal;
+                            await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
                     }
                 } catch (err) {
                     console.error("WebRTC Signaling Error:", err);
@@ -649,10 +651,11 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                 if (data.files && data.files.length > 0) {
                     const uploadedFile = data.files[0];
                     if (socket) {
+                        const mimetype = uploadedFile.mimetype || uploadedFile.type || '';
                         socket.emit('send_message', {
                             roomId: chat.id,
                             content: uploadedFile.url,
-                            type: uploadedFile.mimetype.startsWith('image/') ? 'image' : (uploadedFile.mimetype.startsWith('video/') ? 'video' : (uploadedFile.mimetype.startsWith('audio/') ? 'voice' : 'file')),
+                            type: mimetype.startsWith('image/') ? 'image' : (mimetype.startsWith('video/') ? 'video' : (mimetype.startsWith('audio/') ? 'voice' : 'file')),
                             clientSideId: tempId,
                             caption: i === 0 ? caption : undefined,
                             size: uploadedFile.size,
@@ -715,11 +718,14 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
 
                 try {
                     const data = await uploadFileWithProgress(`/api/media/upload`, formData);
+                    const fileUrl = data.url || (data.urls && data.urls[0]) || (data.files && data.files[0]?.url);
+                    if (!fileUrl) throw new Error("Upload response missing URL");
+
                     const clientSideId = `voice_${Date.now()}`;
                     if (socket) {
-                        socket.emit('send_message', { roomId: chat.id, content: data.url, type: 'voice', clientSideId });
+                        socket.emit('send_message', { roomId: chat.id, content: fileUrl, type: 'voice', clientSideId });
                     }
-                    setMessages(prev => [...prev, { id: clientSideId, text: data.url, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type: 'voice' }]);
+                    setMessages(prev => [...prev, { id: clientSideId, text: fileUrl, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), type: 'voice' }]);
                 } catch (err) { console.error("Voice upload error:", err); }
                 finally { setIsUploadingMedia(false); }
 
@@ -747,7 +753,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     };
 
     const filteredMessages = searchQuery.trim()
-        ? messages.filter(m => m.text.toLowerCase().includes(searchQuery.toLowerCase()))
+        ? messages.filter(m => (m.text || "").toLowerCase().includes(searchQuery.toLowerCase()))
         : messages;
 
     useEffect(() => {
@@ -809,7 +815,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                         {(() => {
                                             const avatar = chat.avatar || chat.otherUser?.avatar || chat.otherUser?.avatar_url;
                                             if (avatar && avatar !== 'null' && avatar !== '' && !headerImageError) {
-                                                const src = avatar.startsWith('http') ? avatar : (avatar.startsWith('data:') ? avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`);
+                                                const src = avatar.startsWith('http') || avatar.startsWith('data:')
+                                                    ? avatar
+                                                    : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`;
                                                 return <img src={src} className="w-full h-full object-cover" onError={() => setHeaderImageError(true)} />;
                                             }
                                             return displayName ? displayName[0].toUpperCase() : '?';

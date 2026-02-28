@@ -62,10 +62,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     const isAudioFile = message.type === 'voice' ||
         (message.metadata?.mimetype?.startsWith('audio/')) ||
-        (message.text.toLowerCase().endsWith('.mp3')) ||
-        (message.text.toLowerCase().endsWith('.wav')) ||
-        (message.text.toLowerCase().endsWith('.m4a')) ||
-        (message.text.toLowerCase().endsWith('.ogg'));
+        (message.text && message.text.toLowerCase().endsWith('.mp3')) ||
+        (message.text && message.text.toLowerCase().endsWith('.wav')) ||
+        (message.text && message.text.toLowerCase().endsWith('.m4a')) ||
+        (message.text && message.text.toLowerCase().endsWith('.ogg'));
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -215,13 +215,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                         {message.type === 'image' ? (
                             <div className="relative group/img min-w-[200px] cursor-pointer overflow-hidden" onClick={() => onMediaClick?.(message.text, 'image')}>
-                                <img src={message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${message.text}`} className="w-full max-h-[400px] object-cover rounded-lg" />
+                                <img src={(message.text || "").startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${(message.text || "").startsWith('/') ? '' : '/'}${message.text}`} className="w-full max-h-[400px] object-cover rounded-lg" />
                                 {message.metadata?.caption && <div className="px-4 py-2 text-sm text-white/90 border-t border-white/5">{message.metadata.caption}</div>}
                                 <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-[10px] font-bold">{message.timestamp}</div>
                             </div>
                         ) : message.type === 'video' ? (
                             <div className="relative min-w-[200px] cursor-pointer group/video" onClick={() => onMediaClick?.(message.text, 'video')}>
-                                <video src={message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${message.text}`} className="w-full max-h-[400px] object-cover rounded-lg" />
+                                <video src={(message.text || "").startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${(message.text || "").startsWith('/') ? '' : '/'}${message.text}`} className="w-full max-h-[400px] object-cover rounded-lg" />
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity bg-black/20">
                                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
                                         <svg className="h-6 w-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
@@ -251,7 +251,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                         {message.type === 'voice' ? 'Voice' : formatFileSize(message.metadata?.size)}
                                     </p>
                                 </div>
-                                <audio ref={audioRef} src={message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${message.text}`} className="hidden" />
+                                <audio ref={audioRef} src={(message.text || "").startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${(message.text || "").startsWith('/') ? '' : '/'}${message.text}`} className="hidden" />
                             </div>
                         ) : message.type === 'file' ? (
                             <div className="flex items-center gap-4 py-2 min-w-[240px]">
@@ -261,10 +261,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     </svg>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[13px] font-bold text-white truncate">{message.text.split('/').pop()}</p>
+                                    <p className="text-[13px] font-bold text-white truncate">{(message.text || "").split('/').pop()}</p>
                                     <p className="text-[11px] font-bold text-white/40 uppercase">{formatFileSize(message.metadata?.size)}</p>
                                     {!message.isUploading && (
-                                        <a href={message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${message.text}`} download className="text-[10px] font-bold text-blue-400 uppercase mt-1 inline-block">Yuklab olish</a>
+                                        <a href={(message.text || "").startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${(message.text || "").startsWith('/') ? '' : '/'}${message.text}`} download className="text-[10px] font-bold text-blue-400 uppercase mt-1 inline-block">Yuklab olish</a>
                                     )}
                                 </div>
                             </div>

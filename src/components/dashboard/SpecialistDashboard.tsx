@@ -253,6 +253,20 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
         setQuizResults({}); // reset scores for this run
     };
 
+    const handleAcceptBooking = (booking: any) => {
+        const inviteLink = `${window.location.origin}/messages?room=${sessionId}`;
+        navigator.clipboard.writeText(inviteLink);
+
+        if (socket) {
+            socket.emit('booking_accept', {
+                studentId: booking.sender_id,
+                url: inviteLink
+            });
+        }
+
+        alert(`${booking.student_name || 'Talaba'} qabul qilindi! Havola nusxalandi va talabaga bildirishnoma yuborildi.`);
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !sessionId) return;
@@ -681,7 +695,12 @@ function DashboardContent({
                                             </div>
                                         </div>
                                         <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
-                                            <button className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black rounded-lg transition-colors">ACCEPT</button>
+                                            <button
+                                                onClick={() => handleAcceptBooking(booking)}
+                                                className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black rounded-lg transition-colors"
+                                            >
+                                                ACCEPT
+                                            </button>
                                             <button className="flex-1 py-1 bg-white/5 hover:bg-white/10 text-slate-400 text-[9px] font-bold rounded-lg transition-colors">LATER</button>
                                         </div>
                                     </div>

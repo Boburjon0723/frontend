@@ -275,7 +275,7 @@ export default function AdminPanel() {
                 </div>
                 <div className="flex items-center gap-6">
                     <span className="text-slate-400 text-sm hidden md:block">Bugun: {new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' })}</span>
-                    <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="px-4 py-2 bg-white/5 hover:bg-red-500/10 hover:text-red-400 border border-white/10 rounded-xl text-sm font-medium transition-all">Logout</button>
+                    <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); window.location.reload(); }} className="px-4 py-2 bg-white/5 hover:bg-red-500/10 hover:text-red-400 border border-white/10 rounded-xl text-sm font-medium transition-all">Logout</button>
                 </div>
             </header>
 

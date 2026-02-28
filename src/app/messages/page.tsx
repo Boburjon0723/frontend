@@ -41,6 +41,7 @@ import {
     User
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
 
 
 export default function MessagesPage() {
@@ -55,6 +56,8 @@ export default function MessagesPage() {
     const [loading, setLoading] = useState(true);
     const [showRightPanel, setShowRightPanel] = useState(true);
     const [isExpertMode, setIsExpertMode] = useState(false);
+    const searchParams = useSearchParams();
+    const roomParam = searchParams.get('room');
 
     // Search State
     const [searchQuery, setSearchQuery] = useState("");
@@ -308,6 +311,14 @@ export default function MessagesPage() {
                 try {
                     const parsed = JSON.parse(userJson);
                     setCurrentUser(parsed);
+
+                    // If there's a room parameter, auto-enter that room
+                    if (roomParam) {
+                        console.log("[MessagesPage] Room parameter detected:", roomParam);
+                        setIsExpertMode(true);
+                        // We'll pass this sessionId to SpecialistDashboard via selectedChat or explicitly
+                        setSelectedChat({ id: roomParam, name: 'Live Session' });
+                    }
                 } catch (e) {
                     console.error("Failed to parse user from localStorage", e);
                 }
@@ -633,7 +644,12 @@ export default function MessagesPage() {
                                                 mode={activeCategory as any}
                                                 onClose={() => setActiveCategory('all')}
                                                 onEdit={() => setActiveCategory('profile_edit')}
-                                                onLogout={() => { localStorage.clear(); window.location.href = '/auth'; }}
+                                                onLogout={() => {
+                                                    localStorage.removeItem('token');
+                                                    localStorage.removeItem('refreshToken');
+                                                    localStorage.removeItem('user');
+                                                    window.location.href = '/auth';
+                                                }}
                                                 user={currentUser}
                                                 bgSettings={{ blur: bgBlur, image: bgImage, darkMode: isDarkMode }}
                                                 onUpdateBgBlur={updateBgBlur}
