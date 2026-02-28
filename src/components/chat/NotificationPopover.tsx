@@ -67,8 +67,8 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onClose }) =>
                             )}
                             <div className="flex justify-between items-start mb-2">
                                 <span className={`text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-md bg-white/5 ${notification.type === 'payment_received' ? 'text-green-400' :
-                                        notification.type === 'session_request' ? 'text-blue-400' :
-                                            'text-white/30'
+                                    notification.type === 'session_request' ? 'text-blue-400' :
+                                        'text-white/30'
                                     }`}>
                                     {notification.type.replace('_', ' ')}
                                 </span>
@@ -77,7 +77,18 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onClose }) =>
                                 </span>
                             </div>
                             <h4 className="text-sm font-bold text-white mb-1.5 group-hover:text-blue-400 transition-colors">{notification.title}</h4>
-                            <p className="text-xs text-white/60 leading-relaxed font-medium">{notification.message}</p>
+                            <p className="text-xs text-white/60 leading-relaxed font-medium mb-3">{notification.message}</p>
+
+                            {/* Render actionable button if notification contains a URL */}
+                            {notification.data?.url && (
+                                <a
+                                    href={notification.data.url}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex w-full mt-2 items-center justify-center py-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black tracking-wide uppercase rounded-xl shadow-lg shadow-blue-500/20 transition-all"
+                                >
+                                    Darsga Qo'shilish
+                                </a>
+                            )}
                         </div>
                     ))
                 )}
