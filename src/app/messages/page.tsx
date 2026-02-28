@@ -43,8 +43,9 @@ import {
 import { apiFetch } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 
+import { Suspense } from "react";
 
-export default function MessagesPage() {
+function MessagesPageContent() {
     const { socket } = useSocket();
 
     // Core State
@@ -718,5 +719,13 @@ export default function MessagesPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function MessagesPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-[#0f1117]"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+            <MessagesPageContent />
+        </Suspense>
     );
 }
