@@ -438,13 +438,16 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         }
     };
 
-    const handleCall = async () => {
+    const handleCall = async (overrideType?: 'video' | 'audio') => {
         if (!socket || !chat) return;
         const targetUserId = String(chat.otherUser?.id || chat.userId || chat.id);
         const myName = JSON.parse(localStorage.getItem('user') || '{}').name || "User";
 
+        const actualCallType = overrideType || callType;
+        if (overrideType) setCallType(overrideType);
+
         setIsCalling(true);
-        const stream = await startLocalStream(callType === 'video');
+        const stream = await startLocalStream(actualCallType === 'video');
         const pc = initializePeerConnection(targetUserId);
 
         if (stream) {
@@ -458,7 +461,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             targetUserId,
             fromName: myName,
             signal: offer,
-            callType
+            callType: actualCallType
         });
     };
 
@@ -920,14 +923,14 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                             {!isTrade && (
                                 <div className="flex items-center gap-1">
                                     <button
-                                        onClick={() => { setCallType('audio'); setTimeout(() => handleCall(), 0); }}
+                                        onClick={() => handleCall('audio')}
                                         className="p-2 text-white/60 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
                                         title="Ovozli chaqiruv"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                     </button>
                                     <button
-                                        onClick={() => { setCallType('video'); setTimeout(() => handleCall(), 0); }}
+                                        onClick={() => handleCall('video')}
                                         className="p-2 text-white/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
                                         title="Videochaqiruv"
                                     >
