@@ -86,47 +86,87 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
     const [token, setToken] = useState<string>('');
     const [loading, setLoading] = useState(true);
 
-    // Sidebar States
-    const [materials, setMaterials] = useState<any[]>([
-        { id: 1, title: 'Introduction Lesson.pdf', type: 'pdf' },
-        { id: 2, title: 'Study Guide Video.mp4', type: 'video' },
-        { id: 3, title: 'Reference Links', type: 'link' }
-    ]);
-
-    // Demo Quizzes
-    const [quizzes, setQuizzes] = useState<any[]>([
-        {
-            id: 1,
-            title: 'History Quiz',
-            questions: [
-                {
-                    text: 'Who was the first President of the United States?',
-                    options: [
-                        { id: 'A', label: 'George Washington' },
-                        { id: 'B', label: 'Thomas Jefferson' },
-                        { id: 'C', label: 'Abraham Lincoln' }
-                    ],
-                    selected: 'A'
-                },
-                {
-                    text: 'When did World War II end?',
-                    options: [
-                        { id: 'A', label: '1939' },
-                        { id: 'B', label: '1945' },
-                        { id: 'C', label: '1950' }
-                    ],
-                    selected: null
-                }
-            ]
-        }
-    ]);
-
-    const [chatMessages, setChatMessages] = useState<any[]>([
-        { id: 1, sender: 'Jessica', text: "Can't wait to start the quiz!", avatar: "https://i.pravatar.cc/150?img=1" },
-        { id: 2, sender: 'Alex', text: "I'm ready!", avatar: "https://i.pravatar.cc/150?img=2" },
-        { id: 3, sender: 'Michael', text: "Please share the study guide.", avatar: "https://i.pravatar.cc/150?img=3" }
-    ]);
+    // Live Data States
+    const [materials, setMaterials] = useState<any[]>([]);
+    const [quizzes, setQuizzes] = useState<any[]>([]);
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState("");
+    const [quizAnswers, setQuizAnswers] = useState<Record<number, Record<number, string>>>({}); // { quizId: { questionIndex: optionId } }
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewMaterial = (data: any) => {
+            if (data.sessionId === sessionId) {
+                setMaterials(prev => [...prev, data.material]);
+            }
+        };
+
+        const handleQuizStart = (data: any) => {
+            if (data.sessionId === sessionId) {
+                setQuizzes(prev => [...prev, data.quizDetails]);
+            }
+        };
+
+        const handleChatMessage = (msg: any) => {
+            if (msg.sessionId === sessionId) {
+                setChatMessages(prev => [...prev, msg]);
+            }
+        };
+
+        socket.on('material_uploaded', handleNewMaterial);
+        socket.on('quiz_start', handleQuizStart);
+        socket.on('chat_message', handleChatMessage);
+
+        return () => {
+            socket.off('material_uploaded', handleNewMaterial);
+            socket.off('quiz_start', handleQuizStart);
+            socket.off('chat_message', handleChatMessage);
+        };
+    }, [socket, sessionId]);
+
+    const handleSendMessage = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!newMessage.trim() || !socket) return;
+        const msg = {
+            id: Date.now(),
+            text: newMessage.trim(),
+            sender: user?.name || "Student",
+            avatar: user?.avatar || "https://i.pravatar.cc/150?img=5",
+            sessionId,
+            timestamp: new Date().toISOString()
+        };
+        socket.emit('chat_message', msg);
+        setChatMessages(prev => [...prev, msg]);
+        setNewMessage("");
+    };
+
+    const handleSelectAnswer = (quizId: number, questionIndex: number, optionId: string) => {
+        setQuizAnswers(prev => ({
+            ...prev,
+            [quizId]: {
+                ...(prev[quizId] || {}),
+                [questionIndex]: optionId
+            }
+        }));
+    };
+
+    const handleSubmitQuiz = (quizId: number) => {
+        const answers = quizAnswers[quizId];
+        if (!answers) return alert("Please answer the questions first.");
+
+        if (socket) {
+            socket.emit('quiz_submit', {
+                sessionId,
+                quizId,
+                studentId: user?.id,
+                answers
+            });
+        }
+        alert("Viktorina javoblari yuborildi!");
+        // Optional: Remove quiz from screen after submit
+        setQuizzes(prev => prev.filter(q => q.id !== quizId));
+    };
 
     useEffect(() => {
         const fetchToken = async () => {
@@ -202,40 +242,44 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                         </div>
                         <div className="p-4 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
                             <h3 className="text-xs text-white/50 font-bold uppercase mb-1">Course Materials</h3>
-                            {materials.map(mat => (
-                                <div key={mat.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors border border-white/5">
+                            {materials.length === 0 && (
+                                <div className="text-white/40 text-sm text-center py-4">Hozircha materiallar yo'q</div>
+                            )}
+                            {materials.map((mat, idx) => (
+                                <a key={mat.id || idx} href={mat.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors border border-white/5">
                                     <div className={`w-8 h-8 rounded-md flex items-center justify-center ${mat.type === 'pdf' ? 'bg-white/10 text-white' : mat.type === 'video' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/10 text-white'}`}>
                                         {mat.type === 'pdf' ? <FileText className="w-4 h-4" /> : mat.type === 'video' ? <Video className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                                     </div>
                                     <span className="text-sm font-medium text-white/90 truncate">{mat.title}</span>
-                                </div>
+                                </a>
                             ))}
                         </div>
                     </GlassCard>
 
-                    {/* Live Test Card */}
+                    {/* Live Test Card Overview */}
                     <GlassCard className="flex-1 !bg-[#1c1f2b] !rounded-xl !border-transparent flex flex-col overflow-hidden max-h-[50%]">
                         <div className="p-4 border-b border-white/5">
-                            <h2 className="font-bold text-[15px]">Live Test</h2>
+                            <h2 className="font-bold text-[15px]">Jonli Sinov</h2>
                         </div>
-                        <div className="p-4 flex-1 flex flex-col">
-                            <div className="border border-white/10 bg-white/[0.02] rounded-xl p-4 mb-auto">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400">
-                                            <PenTool className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-bold text-sm">History Quiz</h3>
-                                            <p className="text-[11px] text-white/50">2 Questions Remaining</p>
+                        <div className="p-4 flex-1 flex flex-col overflow-y-auto custom-scrollbar">
+                            {quizzes.length === 0 ? (
+                                <div className="text-white/40 text-sm text-center py-4">Faol viktorina yo'q</div>
+                            ) : quizzes.map(quiz => (
+                                <div key={quiz.id} className="border border-white/10 bg-white/[0.02] rounded-xl p-4 mb-3">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400">
+                                                <PenTool className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-sm">{quiz.title}</h3>
+                                                <p className="text-[11px] text-white/50">{quiz.questions?.length} ta savol</p>
+                                            </div>
                                         </div>
                                     </div>
-                                    <MoreHorizontal className="w-5 h-5 text-white/40 cursor-pointer hover:text-white" />
+                                    <p className="text-xs text-green-400 mb-2 font-medium">Viktorina boshlandi. O'ng panelda javob bering.</p>
                                 </div>
-                                <button className="w-full py-2.5 bg-[#2563eb] hover:bg-blue-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-500/25 transition-all mt-2">
-                                    Start Quiz
-                                </button>
-                            </div>
+                            ))}
                         </div>
                     </GlassCard>
                 </div>
@@ -266,47 +310,52 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                         </div>
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 flex flex-col gap-6">
-                            {quizzes.map(quiz => (
+                            {quizzes.length === 0 ? (
+                                <div className="text-white/40 text-sm py-4">Ustoz viktorina yuborishi kutilmoqda...</div>
+                            ) : quizzes.map(quiz => (
                                 <div key={quiz.id} className="animate-fade-in">
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center font-black">1</div>
+                                        <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center font-black">?</div>
                                         <div>
                                             <h3 className="font-bold text-[15px]">{quiz.title}</h3>
-                                            <p className="text-[11px] text-white/50"><span className="text-white font-bold">2 Questions</span> Remaining</p>
+                                            <p className="text-[11px] text-white/50"><span className="text-white font-bold">{quiz.questions?.length} ta Savol</span></p>
                                         </div>
                                     </div>
 
-                                    {quiz.questions.map((q: any, i: number) => (
-                                        <div key={i} className="mb-5 last:mb-0">
-                                            <p className="text-sm font-medium mb-3 flex gap-2">
-                                                <span className="font-bold">{i + 1}.</span>
-                                                <span className="text-white/90 leading-relaxed">{q.text}</span>
-                                            </p>
-                                            <div className="flex flex-col gap-2 pl-4">
-                                                {q.options.map((opt: any) => (
-                                                    <label key={opt.id} className="flex items-center gap-3 cursor-pointer group">
-                                                        <input
-                                                            type="radio"
-                                                            name={`q_${i}`}
-                                                            checked={q.selected === opt.id}
-                                                            onChange={() => { }} // Connect to state later
-                                                            className="hidden"
-                                                        />
-                                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${q.selected === opt.id ? 'border-blue-500' : 'border-white/30 group-hover:border-white/60'}`}>
-                                                            {q.selected === opt.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                                                        </div>
-                                                        <div className="flex items-center gap-3 text-sm">
-                                                            <span className="font-bold text-white/70 w-4">{opt.id}</span>
-                                                            <span className={q.selected === opt.id ? 'text-white font-medium' : 'text-white/70'}>{opt.label}</span>
-                                                        </div>
-                                                    </label>
-                                                ))}
+                                    {quiz.questions?.map((q: any, i: number) => {
+                                        const selectedOption = quizAnswers[quiz.id]?.[i];
+                                        return (
+                                            <div key={i} className="mb-5 last:mb-0">
+                                                <p className="text-sm font-medium mb-3 flex gap-2">
+                                                    <span className="font-bold">{i + 1}.</span>
+                                                    <span className="text-white/90 leading-relaxed">{q.text}</span>
+                                                </p>
+                                                <div className="flex flex-col gap-2 pl-4">
+                                                    {q.options?.map((opt: any) => (
+                                                        <label key={opt.id} className="flex items-center gap-3 cursor-pointer group">
+                                                            <input
+                                                                type="radio"
+                                                                name={`q_${quiz.id}_${i}`}
+                                                                checked={selectedOption === opt.id}
+                                                                onChange={() => handleSelectAnswer(quiz.id, i, opt.id)}
+                                                                className="hidden"
+                                                            />
+                                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${selectedOption === opt.id ? 'border-blue-500' : 'border-white/30 group-hover:border-white/60'}`}>
+                                                                {selectedOption === opt.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                                                            </div>
+                                                            <div className="flex items-center gap-3 text-sm">
+                                                                <span className="font-bold text-white/70 w-4">{opt.id}</span>
+                                                                <span className={selectedOption === opt.id ? 'text-white font-medium' : 'text-white/70'}>{opt.label || opt.text}</span>
+                                                            </div>
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
 
-                                    <button className="w-full mt-4 py-2.5 bg-[#2563eb] hover:bg-blue-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-500/25 transition-all">
-                                        Submit Answers
+                                    <button onClick={() => handleSubmitQuiz(quiz.id)} className="w-full mt-4 py-2.5 bg-[#2563eb] hover:bg-blue-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-500/25 transition-all">
+                                        Javoblarni yuborish
                                     </button>
                                 </div>
                             ))}
@@ -333,18 +382,18 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                             ))}
                         </div>
                         <div className="p-3 bg-white/[0.02]">
-                            <div className="relative">
+                            <form className="relative" onSubmit={handleSendMessage}>
                                 <input
                                     type="text"
-                                    placeholder="Type a message..."
+                                    placeholder="Xabar yozing..."
                                     value={newMessage}
                                     onChange={e => setNewMessage(e.target.value)}
                                     className="w-full bg-[#272b38] rounded-xl py-2.5 px-4 pr-10 text-sm text-white placeholder-white/40 border-none outline-none focus:ring-1 ring-blue-500/50"
                                 />
-                                <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white/40 hover:text-white bg-transparent outline-none">
+                                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white/40 hover:text-white bg-transparent outline-none">
                                     <Send className="w-4 h-4 -ml-0.5" />
                                 </button>
-                            </div>
+                            </form>
                         </div>
                     </GlassCard>
                 </div>
