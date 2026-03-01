@@ -75,6 +75,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const pendingCandidatesRef = useRef<any[]>([]);
     const [uploadProgresses, setUploadProgresses] = useState<Record<string, number>>({});
     const [isDragging, setIsDragging] = useState(false);
     const folderInputRef = useRef<HTMLInputElement>(null);
@@ -240,6 +241,20 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         finally { setIsAddingContact(false); }
     };
 
+    const handleBlockUser = async () => {
+        if (!chat || !chat.otherUser) return;
+        if (!confirm("Haqiqatan ham bu foydalanuvchini bloklamoqchimisiz? U sizga xabar yoza olmaydi.")) return;
+        try {
+            const userId = chat.otherUser.id || chat.otherUser.user_id;
+            const res = await apiFetch(`/api/users/${userId}/block`, { method: 'POST' });
+            if (res.ok) {
+                setBlockStatus({ isBlocked: true, blockedByMe: true });
+                setIsContact(true);
+                alert("Foydalanuvchi bloklandi");
+            }
+        } catch (e) { console.error(e); }
+    };
+
     const fetchBlockStatus = useCallback(async () => {
         if (!chat || chat.type !== 'private') return;
         try {
@@ -286,9 +301,18 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                 setIsIncomingCall(true);
             });
 
-            socket.on('call_accepted', (data: any) => {
+            socket.on('call_accepted', async (data: any) => {
                 setIsCalling(true);
                 startCallTimer();
+                if (pcRef.current && data.signal && data.signal.type === 'answer') {
+                    try {
+                        await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.signal));
+                        pendingCandidatesRef.current.forEach(c => pcRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
+                        pendingCandidatesRef.current = [];
+                    } catch (e) {
+                        console.error('Error setting remote description on accept', e);
+                    }
+                }
             });
 
             socket.on('call_rejected', () => {
@@ -310,13 +334,19 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         const answer = await pcRef.current.createAnswer();
                         await pcRef.current.setLocalDescription(answer);
                         socket.emit('call_signal', { to: data.from, signal: answer });
+                        pendingCandidatesRef.current.forEach(c => pcRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
+                        pendingCandidatesRef.current = [];
                     } else if (data.signal.type === 'answer') {
                         await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.signal));
+                        pendingCandidatesRef.current.forEach(c => pcRef.current?.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
+                        pendingCandidatesRef.current = [];
                     } else if (data.signal.candidate || (typeof data.signal === 'string' && data.signal.includes('candidate'))) {
                         // Handle candidate relay
-                        if (pcRef.current.remoteDescription) {
+                        if (pcRef.current.remoteDescription && pcRef.current.remoteDescription.type) {
                             const candidate = data.signal.candidate ? data.signal : data.signal;
                             await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                        } else {
+                            pendingCandidatesRef.current.push(data.signal);
                         }
                     }
                 } catch (err) {
@@ -435,6 +465,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         // The offer came in the initial signal or will come through call_signal
         if (callData.signal && callData.signal.type === 'offer') {
             await pc.setRemoteDescription(new RTCSessionDescription(callData.signal));
+            pendingCandidatesRef.current.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
+            pendingCandidatesRef.current = [];
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             socket.emit('accept_call', { to: callData.from, signal: answer });
@@ -472,6 +505,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             pcRef.current = null;
         }
         setRemoteStream(null);
+        pendingCandidatesRef.current = [];
     };
     useEffect(() => {
         audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -945,9 +979,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                 disabled={isAddingContact}
                                 className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-[10px] font-bold transition-all disabled:opacity-50"
                             >
-                                {isAddingContact ? 'Saqlanmoda...' : 'Qо\'shish'}
+                                {isAddingContact ? 'Saqlanmoqda...' : 'Qо\'shish'}
                             </button>
-                            <button onClick={handleRejectCall} className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-[10px] font-bold transition-all">Bloklash</button>
+                            <button onClick={handleBlockUser} className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-[10px] font-bold transition-all">Bloklash</button>
                         </div>
                     </div>
                 )}
