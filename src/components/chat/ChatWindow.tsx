@@ -298,6 +298,13 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             // Call Listeners
             socket.on('incoming_call', (data: any) => {
                 setCallData(data);
+                if (data.callType) {
+                    setCallType(data.callType);
+                } else if (data.signal && data.signal.sdp && data.signal.sdp.includes('m=video')) {
+                    setCallType('video');
+                } else {
+                    setCallType('audio');
+                }
                 setIsIncomingCall(true);
             });
 
@@ -326,7 +333,12 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             });
 
             socket.on('call_signal', async (data: any) => {
-                if (!pcRef.current) return;
+                if (!pcRef.current) {
+                    if (data.signal && (data.signal.candidate || (typeof data.signal === 'string' && data.signal.includes('candidate')))) {
+                        pendingCandidatesRef.current.push(data.signal);
+                    }
+                    return;
+                }
 
                 try {
                     if (data.signal.type === 'offer') {
@@ -445,7 +457,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         socket.emit('call_user', {
             targetUserId,
             fromName: myName,
-            signal: offer
+            signal: offer,
+            callType
         });
     };
 
@@ -507,6 +520,19 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         setRemoteStream(null);
         pendingCandidatesRef.current = [];
     };
+
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream, isCalling, isIncomingCall, callType]);
+
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream, isCalling, isIncomingCall, callType]);
+
     useEffect(() => {
         audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     }, []);
