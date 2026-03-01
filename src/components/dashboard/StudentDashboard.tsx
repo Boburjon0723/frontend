@@ -245,6 +245,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                     <LiveKitRoom
                         video={true}
                         audio={true}
+                        connect={true}
                         token={token}
                         serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL || 'wss://mali-livekit-tl6r65ar.livekit.cloud'}
                         data-lk-theme="default"
