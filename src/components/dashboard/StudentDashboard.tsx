@@ -5,11 +5,10 @@ import { useSocket } from '@/context/SocketContext';
 import { GlassCard } from '../ui/GlassCard';
 import {
     LiveKitRoom,
-    VideoConference,
     RoomAudioRenderer,
     ControlBar,
     useTracks,
-    GridLayout
+    ParticipantTile
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import {
@@ -32,6 +31,54 @@ interface StudentDashboardProps {
     user: any;
     sessionId: string;
     onLeave: () => void;
+}
+
+function CustomVideoLayout() {
+    const tracks = useTracks(
+        [
+            { source: Track.Source.Camera, withPlaceholder: true },
+            { source: Track.Source.ScreenShare, withPlaceholder: false },
+        ],
+        { onlySubscribed: false },
+    );
+
+    const localTracks = tracks.filter(t => t.participant.isLocal);
+    const remoteTracks = tracks.filter(t => !t.participant.isLocal);
+
+    // Assuming first remote is mentor, local is student
+    const mentorTrack = remoteTracks.length > 0 ? remoteTracks[0] : null;
+    const studentTrack = localTracks.length > 0 ? localTracks[0] : null;
+
+    return (
+        <div className="flex flex-col w-full h-full relative">
+            {/* Top Area: Mentor */}
+            <div className="flex-1 w-full bg-[#0d0f14] relative">
+                {mentorTrack ? (
+                    <ParticipantTile trackRef={mentorTrack} className="w-full h-full [&>video]:object-cover" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/40 font-medium tracking-wide">
+                        Kutilyapti (Mentor)...
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom Area: Student */}
+            <div className="flex-[0.8] w-full bg-[#12141c] relative border-t border-white/5">
+                {studentTrack ? (
+                    <ParticipantTile trackRef={studentTrack} className="w-full h-full [&>video]:object-cover" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/40 font-medium tracking-wide">
+                        Sizning kamerangiz
+                    </div>
+                )}
+            </div>
+
+            {/* Floating Control Bar */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl">
+                <ControlBar variation="minimal" />
+            </div>
+        </div>
+    );
 }
 
 export default function StudentDashboard({ user, sessionId, onLeave }: StudentDashboardProps) {
@@ -203,11 +250,8 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                         data-lk-theme="default"
                         className="flex-1 flex flex-col w-full h-full relative"
                     >
-                        <VideoConference className="flex-1" />
+                        <CustomVideoLayout />
                         <RoomAudioRenderer />
-
-                        {/* Custom Control Bar Overlay */}
-                        {/* We use LiveKit's built-in tools primarily, but customized via CSS. The bottom bar in the image is replicated by standard LiveKit controls styled via global css or we override slightly */}
                     </LiveKitRoom>
                 </div>
 
