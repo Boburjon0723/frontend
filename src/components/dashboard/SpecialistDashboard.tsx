@@ -7,11 +7,10 @@ import {
     RoomAudioRenderer,
     useLocalParticipant,
     useTracks,
-    VideoTrack,
-    ParticipantTile,
     useConnectionState,
 } from '@livekit/components-react';
 import { Track, ConnectionState } from 'livekit-client';
+import { LiveVideoFrame } from './shared/LiveVideoFrame';
 import '@livekit/components-styles';
 
 import {
@@ -41,6 +40,13 @@ import {
     AlignLeft,
     ArrowLeft,
     UserPlus,
+    MicOff,
+    VideoOff,
+    MonitorUp,
+    LogOut,
+    LayoutGrid,
+    Settings,
+    Maximize2,
 } from 'lucide-react';
 
 interface SpecialistDashboardProps {
@@ -62,6 +68,16 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     const [materials, setMaterials] = useState<any[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Groups State
+    const [groups, setGroups] = useState([
+        { id: '1', name: 'Oliy Tarix', time: '14:00' },
+        { id: '2', name: 'Ingliz tili (IELTS)', time: '16:30' },
+    ]);
+    const [selectedGroupId, setSelectedGroupId] = useState('1');
+    const [showNewGroupPrompt, setShowNewGroupPrompt] = useState(false);
+    const [newGroupName, setNewGroupName] = useState('');
+    const [newGroupTime, setNewGroupTime] = useState('');
 
     // Live Quiz State
     const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -100,12 +116,12 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 
 
     React.useEffect(() => {
-        if (!sessionId) return;
+        if (!selectedGroupId) return;
 
         // Fetch existing materials
         const fetchMaterials = async () => {
             try {
-                const res = await apiFetch(`/api/sessions/${sessionId}/materials`);
+                const res = await apiFetch(`/api/sessions/${selectedGroupId}/materials`);
                 if (res.ok) {
                     const data = await res.json();
                     setMaterials(data);
@@ -117,7 +133,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 
         const fetchQuizzes = async () => {
             try {
-                const res = await apiFetch(`/api/sessions/${sessionId}/quizzes`);
+                const res = await apiFetch(`/api/sessions/${selectedGroupId}/quizzes`);
                 if (res.ok) {
                     const data = await res.json();
                     setQuizzes(data);
@@ -152,7 +168,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
         // Fetch LiveKit Token
         const fetchLiveKitToken = async () => {
             try {
-                const res = await apiFetch(`/api/livekit/token?room=${sessionId}`);
+                const res = await apiFetch(`/api/livekit/token?room=${selectedGroupId}`);
                 if (res.ok) {
                     const data = await res.json();
                     setLkToken(data.token);
@@ -165,7 +181,9 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
         fetchLiveKitToken();
 
         // Socket Listeners
-        if (socket) {
+        if (socket && selectedGroupId) {
+            socket.emit('join_room', selectedGroupId);
+
             const handleNewMaterial = (newMaterial: any) => {
                 setMaterials(prev => {
                     if (prev.some(m => m.id === newMaterial.id)) return prev;
@@ -188,7 +206,18 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
             };
 
             const handleNewChatMessage = (msg: any) => {
-                setChatMessages(prev => [...prev, msg]);
+                // If it's a session chat receive event
+                const formattedMsg = {
+                    id: msg.id || Date.now(),
+                    text: msg.content || msg.text || '',
+                    sender: msg.sender_name || msg.sender || "Foydalanuvchi",
+                    avatar: msg.sender_avatar || msg.avatar || "https://i.pravatar.cc/150?img=5",
+                    timestamp: msg.created_at || new Date().toISOString()
+                };
+                setChatMessages(prev => {
+                    if (prev.some(p => p.id === formattedMsg.id)) return prev;
+                    return [...prev, formattedMsg];
+                });
             };
 
             const handleParticipantJoined = (participant: any) => {
@@ -207,26 +236,26 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
             socket.on('material_new', handleNewMaterial);
             socket.on('quiz_result_update', handleQuizResultUpdate);
             socket.on('new_notification', handleNewBooking);
-            socket.on('chat_message', handleNewChatMessage);
+            socket.on('session_chat:receive', handleNewChatMessage);
             socket.on('participant_joined', handleParticipantJoined);
             socket.on('participant_left', handleParticipantLeft);
             return () => {
                 socket.off('material_new', handleNewMaterial);
                 socket.off('quiz_result_update', handleQuizResultUpdate);
                 socket.off('new_notification', handleNewBooking);
-                socket.off('chat_message', handleNewChatMessage);
+                socket.off('session_chat:receive', handleNewChatMessage);
                 socket.off('participant_joined', handleParticipantJoined);
                 socket.off('participant_left', handleParticipantLeft);
             };
 
         }
 
-    }, [sessionId, socket]);
+    }, [selectedGroupId, socket]);
 
     const handleCreateQuiz = async () => {
-        if (!newQuizTitle || !sessionId) return;
+        if (!newQuizTitle || !selectedGroupId) return;
         try {
-            const res = await apiFetch(`/api/sessions/${sessionId}/quizzes`, {
+            const res = await apiFetch(`/api/sessions/${selectedGroupId}/quizzes`, {
                 method: 'POST',
                 body: JSON.stringify({ title: newQuizTitle, questions: newQuestions })
             });
@@ -247,14 +276,14 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     };
 
     const handleBroadcastQuiz = (quiz: any) => {
-        if (!socket || !sessionId) return;
-        socket.emit('quiz_start', { sessionId, quizId: quiz.id, quizDetails: quiz });
+        if (!socket || !selectedGroupId) return;
+        socket.emit('quiz_start', { sessionId: selectedGroupId, quizId: quiz.id, quizDetails: quiz });
         setActiveQuiz(quiz);
         setQuizResults({}); // reset scores for this run
     };
 
     const handleAcceptBooking = (booking: any) => {
-        const inviteLink = `${window.location.origin}/messages?room=${sessionId}`;
+        const inviteLink = `${window.location.origin}/messages?room=${selectedGroupId}`;
         navigator.clipboard.writeText(inviteLink);
 
         if (socket) {
@@ -274,15 +303,15 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !sessionId) return;
+        if (!file || !selectedGroupId) return;
 
         setIsUploading(true);
         const formData = new FormData();
         formData.append('material', file);
 
         try {
-            const token = localStorage.getItem('token'); // apiFetch for FormData might need special care, but fetch is fine too if we use right URL
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/sessions/${sessionId}/materials`, {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/sessions/${selectedGroupId}/materials`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
@@ -293,7 +322,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                 const newMaterial = await res.json();
                 // Material comes back, notify others via socket
                 if (socket) {
-                    socket.emit('material_uploaded', { sessionId, material: newMaterial });
+                    socket.emit('material_uploaded', { sessionId: selectedGroupId, material: newMaterial });
                 }
                 setMaterials(prev => [newMaterial, ...prev]);
             } else {
@@ -311,7 +340,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     const handleEndSession = async () => {
         if (!window.confirm('Darsni yakunlashni xohlaysizmi? MALI kafillikdan yechiladi.')) return;
         try {
-            const res = await apiFetch(`/api/specialists/sessions/${sessionId}/close`, {
+            const res = await apiFetch(`/api/specialists/sessions/${selectedGroupId}/close`, {
                 method: 'PATCH'
             });
 
@@ -370,17 +399,17 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 
     const handleSendMessage = (isPrivate = false, receiverId?: string) => {
         if (!chatInput.trim() || !socket || !sessionId) return;
-        const msg = {
-            sessionId,
-            sender_id: user.id,
-            sender_name: user.name,
-            message: chatInput,
-            is_private: isPrivate,
-            receiver_id: receiverId,
-            created_at: new Date()
+
+        const payload = {
+            sessionId: selectedGroupId,
+            receiverId: receiverId,
+            content: chatInput.trim(),
+            type: 'text'
         };
-        socket.emit('chat_message', msg);
-        if (!isPrivate || isPrivate === true) setChatMessages(prev => [...prev, msg]);
+
+        socket.emit('session_chat:send', payload);
+
+        // Let the receive event handle updating local state
         setChatInput('');
     };
 
@@ -470,7 +499,12 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                     handleRemoveStudent,
                     handleStartBreakout,
                     handleSendMessage,
-                    handleSaveNote
+                    handleSaveNote,
+                    groups, setGroups,
+                    selectedGroupId, setSelectedGroupId,
+                    showNewGroupPrompt, setShowNewGroupPrompt,
+                    newGroupName, setNewGroupName,
+                    newGroupTime, setNewGroupTime
                 }}
             />
             <RoomAudioRenderer />
@@ -520,7 +554,12 @@ function DashboardContent({
     handleRemoveStudent,
     handleStartBreakout,
     handleSendMessage,
-    handleSaveNote
+    handleSaveNote,
+    groups, setGroups,
+    selectedGroupId, setSelectedGroupId,
+    showNewGroupPrompt, setShowNewGroupPrompt,
+    newGroupName, setNewGroupName,
+    newGroupTime, setNewGroupTime
 }: any) {
     const { localParticipant } = useLocalParticipant();
     const connectionState = useConnectionState();
@@ -555,6 +594,15 @@ function DashboardContent({
             });
         }
     }, [isCamOn, localParticipant, connectionState]);
+
+    React.useEffect(() => {
+        if (localParticipant && connectionState === ConnectionState.Connected) {
+            localParticipant.setScreenShareEnabled(isScreenSharing).catch(err => {
+                console.warn("Manual screen sharing sync failed:", err);
+                setIsScreenSharing(false);
+            });
+        }
+    }, [isScreenSharing, localParticipant, connectionState]);
 
     const handleCopyInvite = () => {
         const link = `${window.location.origin}/messages?room=${sessionId}`;
@@ -653,6 +701,49 @@ function DashboardContent({
 
             {/* ─── MAIN CONTENT ─── */}
             <div className="flex-1 flex overflow-hidden">
+
+                {/* ═══ GROUPS SIDEBAR ═══ */}
+                <div className="w-[200px] shrink-0 flex flex-col bg-[#12141c] border-r border-white/5 overflow-y-auto no-scrollbar">
+                    <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/5 bg-[#161821]">
+                        <span className="text-sm font-bold text-white tracking-wide">Guruhlar</span>
+                        <button onClick={() => setShowNewGroupPrompt(!showNewGroupPrompt)} className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all">
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {showNewGroupPrompt && (
+                        <div className="p-3 bg-[#1a1c24] border-b border-white/5 animate-slide-down">
+                            <input type="text" placeholder="Guruh nomi..." value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="w-full bg-[#0d0f14] text-xs text-white rounded-lg px-3 py-2 border border-white/10 mb-2 outline-none" />
+                            <input type="time" value={newGroupTime} onChange={e => setNewGroupTime(e.target.value)} className="w-full bg-[#0d0f14] text-xs text-white rounded-lg px-3 py-2 border border-white/10 mb-2 outline-none" />
+                            <button onClick={() => {
+                                if (newGroupName && newGroupTime) {
+                                    setGroups([...groups, { id: Date.now().toString(), name: newGroupName, time: newGroupTime }]);
+                                    setNewGroupName('');
+                                    setNewGroupTime('');
+                                    setShowNewGroupPrompt(false);
+                                }
+                            }} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-all">
+                                Saqlash
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex-1 p-2 space-y-1 overflow-y-auto no-scrollbar">
+                        {groups.map((g: any) => (
+                            <button
+                                key={g.id}
+                                onClick={() => setSelectedGroupId(g.id)}
+                                className={`w-full flex flex-col items-start px-3 py-2.5 rounded-xl border text-left transition-all ${selectedGroupId === g.id ? 'bg-indigo-500/10 border-indigo-500/30 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]' : 'bg-transparent border-transparent hover:bg-white/5'}`}
+                            >
+                                <span className={`text-xs font-bold mb-1 ${selectedGroupId === g.id ? 'text-indigo-400' : 'text-slate-300'}`}>{g.name}</span>
+                                <div className="flex items-center gap-1.5 opacity-80">
+                                    <Clock className="w-3 h-3 text-slate-500" />
+                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{g.time}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
                 {/* ═══ LEFT PANEL ═══ */}
                 <div className="w-56 shrink-0 flex flex-col bg-[#161927] border-r border-white/5 overflow-y-auto no-scrollbar">
@@ -850,37 +941,47 @@ function DashboardContent({
 
                     {/* CHAT tab */}
                     {activeTab === 'chat' && (
-                        <div className="flex flex-col flex-1 gap-2 px-3">
-                            <div className="flex-1 space-y-3 overflow-y-auto no-scrollbar">
-                                {chatMessages.map((m: any, i: number) => (
-                                    <div key={i} className="flex items-start gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-bold text-white">
-                                            {m.sender_name?.[0] || 'U'}
+                        <div className="flex flex-col flex-1 pb-2">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+                                {chatMessages.length === 0 ? (
+                                    <div className="text-white/30 text-xs text-center mt-4">Xabarlar yo'q</div>
+                                ) : (
+                                    chatMessages.map((m: any, i: number) => (
+                                        <div key={m.id || i} className="flex gap-2.5 text-sm animate-slide-up">
+                                            <img
+                                                src={m.avatar || m.sender_avatar ? (m.avatar || m.sender_avatar).includes('http') ? (m.avatar || m.sender_avatar) : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${(m.avatar || m.sender_avatar).startsWith('/') ? '' : '/'}${m.avatar || m.sender_avatar}` : "https://i.pravatar.cc/150?img=5"}
+                                                alt="avatar"
+                                                className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-white/10"
+                                                onError={(e: any) => { e.target.src = "https://i.pravatar.cc/150?img=5" }}
+                                            />
+                                            <div>
+                                                <p className="leading-snug bg-white/5 px-3 py-2 rounded-xl rounded-tl-sm border border-white/5">
+                                                    <span className="font-bold text-white/80 mr-1.5">{m.sender || m.sender_name}:</span>
+                                                    <span className="text-white/90 break-words">{m.text || m.message}</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span className="text-[10px] font-bold text-white">{m.sender_name}: </span>
-                                            <span className="text-[10px] text-slate-400">{m.message}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
-                            <div className="relative mt-auto">
-                                <input
-                                    type="text"
-                                    value={chatInput}
-                                    onChange={e => setChatInput(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                                    placeholder="Message..."
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-3 pr-10 text-xs text-white focus:outline-none placeholder:text-slate-600"
-                                />
-                                <button
-                                    onClick={() => handleSendMessage()}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/60"
-                                >
-
-                                    <Send className="w-3 h-3" />
-                                </button>
-
+                            <div className="p-3 bg-[#11131a] border-t border-white/5 mx-2 rounded-xl">
+                                <form className="relative" onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Xabar yozing..."
+                                        value={chatInput}
+                                        onChange={e => setChatInput(e.target.value)}
+                                        className="w-full bg-[#1c1f2b] rounded-xl py-2.5 px-4 pr-10 text-sm text-white placeholder-white/40 border border-white/5 outline-none focus:ring-1 ring-blue-500/50 transition-all shadow-inner"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSendMessage()}
+                                        disabled={!chatInput.trim()}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white/40 hover:text-blue-400 disabled:opacity-50 disabled:hover:text-white/40 bg-transparent outline-none transition-colors"
+                                    >
+                                        <Send className="w-4 h-4" />
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     )}
@@ -889,112 +990,90 @@ function DashboardContent({
                 {/* ═══ CENTER PANEL (VIDEO) ═══ */}
                 <div className="flex-1 flex flex-col relative overflow-hidden bg-[#0d0f1a]">
 
-                    {/* Big main video (Mentor) */}
-                    <div className="flex-1 relative overflow-hidden bg-slate-900 group">
-                        {isCamOn ? (
-                            localVideoTrack ? (
-                                <VideoTrack trackRef={localVideoTrack} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#1a1d2e]">
-                                    <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-                                    <p className="text-slate-400 font-bold text-sm animate-pulse">Kamera ishga tushmoqda...</p>
-                                </div>
-                            )
-                        ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#1a1d2e]">
-                                <div className="w-24 h-24 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 border border-red-500/20 scale-110">
-                                    <VideoIcon className="w-10 h-10 opacity-30" />
-                                </div>
-                                <p className="text-slate-500 font-bold text-sm">Videokamera o'chirilgan</p>
-                            </div>
-                        )}
+                    {/* Shared Video Frame Component */}
+                    <LiveVideoFrame isMentor={true} />
 
-                        {/* Recording badge */}
-                        {isRecording && (
-                            <div className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-white/10 z-10">
-                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-[11px] font-bold text-white">Recording...</span>
-                            </div>
-                        )}
-                    </div>
 
-                    {/* Quiz status bar */}
-                    <div className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-[#1a2035] border-t border-b border-white/5">
-                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 shrink-0">
-                            <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                    {/* Bottom control bar (Mirrored from User's preferred design) */}
+                    <div className="h-[72px] shrink-0 flex items-center justify-between px-6 bg-[#1c1f2b] border-t border-white/5 relative z-10 w-full">
+                        {/* Title Info */}
+                        <div className="flex flex-col">
+                            <h3 className="text-white font-bold text-sm">{user?.name || 'Tessa Walker'}</h3>
+                            <p className="text-white/40 text-xs text-left">Siz Mentorsiz</p>
                         </div>
-                        <span className="text-sm font-bold text-white">History Quiz:</span>
-                        <span className="text-sm text-slate-300">
-                            <span className="text-white font-bold">{quizScore.current}/{quizScore.total}</span> Students Completed
-                        </span>
-                        <div className="ml-auto flex items-center gap-2">
-                            <button className="px-3 h-7 rounded-lg bg-white/10 text-xs font-bold text-white hover:bg-white/20 transition-all">All</button>
-                            <button className="w-7 h-7 rounded-lg bg-white/10 text-xs font-bold text-white hover:bg-white/20 transition-all flex items-center justify-center"><Plus className="w-3 h-3" /></button>
-                            <button className="w-7 h-7 rounded-lg bg-white/10 text-xs font-bold text-white hover:bg-white/20 transition-all flex items-center justify-center"><MoreHorizontal className="w-4 h-4" /></button>
+
+                        {/* Center Actions */}
+                        <div className="flex items-center gap-3">
+                            {/* Microphone Button */}
+                            <button
+                                onClick={handleToggleMic}
+                                className={`flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm shadow-sm ${isMicOn ? 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5' : 'bg-red-500 text-white hover:bg-red-600'}`}
+                            >
+                                {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                                <span>{isMicOn ? 'Microphone' : 'Muted'}</span>
+                                <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-50" />
+                            </button>
+
+                            {/* Camera Button */}
+                            <button
+                                onClick={handleToggleCam}
+                                className={`flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm shadow-sm ${isCamOn ? 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5' : 'bg-[#2a2d3e] text-white/50 hover:bg-[#32364a] border border-white/5'}`}
+                            >
+                                {isCamOn ? <VideoIcon className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                                <span>Camera</span>
+                                <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-50" />
+                            </button>
+
+                            {/* Screen Share Button */}
+                            <button
+                                onClick={handleToggleScreenShare}
+                                className={`flex items-center gap-2 h-11 px-5 rounded-xl transition-all font-bold text-sm shadow-md ${isScreenSharing ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5'}`}
+                            >
+                                {isScreenSharing ? <MonitorUp className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
+                                <span>{isScreenSharing ? 'Stop screen share' : 'Share Screen'}</span>
+                            </button>
+
+                            {/* Chat Button (Optional) */}
+                            <button
+                                onClick={() => setActiveTab('chat')}
+                                className="flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5"
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                <span>Chat</span>
+                            </button>
+
+                            {/* Leave Button */}
+                            <button
+                                onClick={() => window.location.href = '/dashboard/specialist'}
+                                className="flex items-center gap-2 h-11 px-5 rounded-xl transition-all font-bold text-sm bg-transparent border border-red-500 text-red-500 hover:bg-red-500/10"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                <span>Leave</span>
+                            </button>
                         </div>
-                    </div>
 
-                    {/* Small videos grid (Students) */}
-                    <div className="h-[178px] shrink-0 grid grid-cols-5 bg-[#0d0f1a] p-2 gap-2 overflow-x-auto no-scrollbar">
-                        {remoteParticipants.length === 0 ? (
-                            <div className="col-span-1 rounded-xl overflow-hidden relative bg-slate-800/50 border border-white/5 flex flex-col items-center justify-center">
-                                <Users className="w-6 h-6 text-slate-600 mb-1" />
-                                <span className="text-[10px] text-slate-500 font-bold">Kutilmoqda...</span>
-                            </div>
-                        ) : (
-                            remoteParticipants.slice(0, 5).map((track, i) => (
-                                <div key={i} className="rounded-xl overflow-hidden relative bg-slate-800 aspect-video ring-1 ring-white/5">
-                                    <VideoTrack trackRef={track} className="w-full h-full object-cover" />
-                                    <div className="absolute bottom-1.5 left-1.5 text-[9px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-lg backdrop-blur-md border border-white/5">
-                                        {track.participant.identity || `Student ${i + 1}`}
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-
-
-                    {/* Bottom control bar */}
-                    <div className="h-14 shrink-0 flex items-center justify-center gap-3 bg-[#161927] border-t border-white/5 px-6">
-                        <button
-                            onClick={handleToggleMic}
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isMicOn ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
-                            title="Microphone"
-                        >
-                            <Mic className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={handleToggleCam}
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isCamOn ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
-                            title="Camera"
-                        >
-                            <VideoIcon className="w-5 h-5" />
-                        </button>
-                        <button className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all" title="Participants">
-                            <Users className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={handleToggleScreenShare}
-                            className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all scale-110 ${isScreenSharing ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-blue-600/30' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                            title="Screen Share"
-                        >
-                            <Monitor className="w-6 h-6" />
-                        </button>
-                        <button className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all" title="Snapshot">
-                            <Camera className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={handleToggleRecording}
-                            className={`h-10 px-4 rounded-xl flex items-center gap-2 transition-all ${isRecording ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                            title="Record"
-                        >
-                            <Circle className={`w-2.5 h-2.5 ${isRecording ? 'text-white fill-white animate-pulse' : 'text-red-500 fill-red-500'}`} />
-                            <span className={`text-xs font-bold uppercase tracking-wider ${isRecording ? 'text-white' : 'text-red-400'}`}>REC</span>
-                        </button>
-
-                        <button className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all" title="Volume">
-                            <Users className="w-5 h-5" />
-                        </button>
+                        {/* Right Tools (Recording, Volume, Layout) */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleToggleRecording}
+                                className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-white/50 hover:bg-white/5'}`}
+                                title={isRecording ? 'Stop Recording' : 'Start Recording'}
+                            >
+                                <Circle className={`w-4 h-4 ${isRecording ? 'fill-current animate-pulse' : ''}`} />
+                            </button>
+                            <button className="w-11 h-11 rounded-full flex items-center justify-center transition-all bg-transparent text-white/50 hover:bg-white/5">
+                                <Users className="w-4 h-4" />
+                            </button>
+                            <button className="w-11 h-11 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-sm shadow-blue-500/20 hover:bg-blue-600 transition-colors">
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button className="w-11 h-11 rounded-full flex items-center justify-center transition-all bg-transparent text-white/50 hover:bg-white/5">
+                                <Settings className="w-4 h-4" />
+                            </button>
+                            <button className="w-11 h-11 rounded-full flex items-center justify-center transition-all bg-transparent text-white/50 hover:bg-white/5">
+                                <Maximize2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
