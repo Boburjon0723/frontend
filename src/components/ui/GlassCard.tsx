@@ -7,6 +7,7 @@ interface GlassCardProps {
     hoverEffect?: boolean;
     onClick?: React.MouseEventHandler<HTMLDivElement>;
     noPadding?: boolean;
+    style?: React.CSSProperties;
 }
 
 export const GlassCard: React.FC<GlassCardProps> = ({
@@ -16,6 +17,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     hoverEffect = false, // Alias for hover
     onClick,
     noPadding = false, // Destructure noPadding with a default value
+    style = {},
 }) => {
     const shouldHover = hover || hoverEffect;
     return (
@@ -29,6 +31,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
             `}
             style={{
                 borderRadius: '25px',
+                ...style,
             }}
         >
             {children}

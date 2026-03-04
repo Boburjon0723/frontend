@@ -45,7 +45,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const socketInstance = io(socketURL, {
-            transports: ['polling', 'websocket'],
+            transports: ['websocket'],
             autoConnect: true,
             auth: { token: token },
             reconnection: true,

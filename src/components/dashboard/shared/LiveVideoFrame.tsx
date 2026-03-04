@@ -7,13 +7,26 @@ import {
     ControlBar
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { VideoIcon } from 'lucide-react';
+import { VideoIcon, Users } from 'lucide-react';
+import { LiveWhiteboard } from './LiveWhiteboard';
 
 interface LiveVideoFrameProps {
     isMentor?: boolean;
+    isWhiteboardOpen?: boolean;
+    socket?: any;
+    sessionId?: string;
+    onCloseWhiteboard?: () => void;
+    immersive?: boolean;
 }
 
-export function LiveVideoFrame({ isMentor = false }: LiveVideoFrameProps) {
+export function LiveVideoFrame({
+    isMentor = false,
+    isWhiteboardOpen = false,
+    socket,
+    sessionId,
+    onCloseWhiteboard,
+    immersive = false
+}: LiveVideoFrameProps) {
     const tracks = useTracks(
         [
             { source: Track.Source.Camera, withPlaceholder: true },
@@ -36,55 +49,115 @@ export function LiveVideoFrame({ isMentor = false }: LiveVideoFrameProps) {
     const screenShareTrack = tracks.find(t => t.source === Track.Source.ScreenShare);
 
     return (
-        <div className="flex flex-col w-full h-full relative bg-[#0d0f1a] overflow-hidden">
-            {/* BIG MAIN VIDEO (Mentor or ScreenShare) */}
-            <div className="flex-1 relative overflow-hidden bg-slate-900 group">
-                {screenShareTrack ? (
-                    <div className="w-full h-full flex items-center justify-center bg-black">
-                        <ParticipantTile trackRef={screenShareTrack} className="w-full h-full object-contain [&>video]:object-contain" />
-                    </div>
-                ) : mainTrack ? (
-                    <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
-                ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#1a1d2e]">
-                        <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700/50 scale-110">
-                            <VideoIcon className="w-10 h-10 opacity-50" />
-                        </div>
-                        <p className="text-slate-500 font-bold text-sm">
-                            {isMentor ? "Kamerangiz o'chirilgan" : "Ustoz ulanishi kutilmoqda..."}
-                        </p>
-                    </div>
-                )}
+        <div className={`flex flex-col w-full h-full relative ${immersive ? 'bg-black' : 'bg-[#0d0f1a]'} overflow-hidden`}>
 
-                {/* Picture in Picture for Screen Share */}
-                {screenShareTrack && mainTrack && (
-                    <div className="absolute top-4 right-4 w-48 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-20 bg-slate-900">
-                        <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
-                    </div>
-                )}
-            </div>
-
-            {/* SMALL VIDEOS GRID (Students) */}
-            <div className="h-[178px] shrink-0 flex bg-[#0d0f1a] p-2 gap-2 overflow-x-auto no-scrollbar border-t border-white/5">
-                {gridTracks.length === 0 ? (
-                    <div className="h-full px-8 rounded-xl bg-slate-800/50 border border-white/5 flex flex-col items-center justify-center">
-                        <svg className="w-6 h-6 text-slate-600 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                        <span className="text-[10px] text-slate-500 font-bold">Talabalar kutilmoqda...</span>
-                    </div>
-                ) : (
-                    gridTracks.map((track, i) => (
-                        <div key={track?.participant?.identity || i} className="h-full aspect-video rounded-xl overflow-hidden relative bg-slate-800 shrink-0 ring-1 ring-white/5">
-                            {track ? <ParticipantTile trackRef={track} className="w-full h-full [&>video]:object-cover" /> : null}
-                            <div className="absolute bottom-1.5 left-1.5 text-[9px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-lg backdrop-blur-md border border-white/5">
-                                {track?.participant?.identity || `Talaba ${i + 1}`}
+            {(isWhiteboardOpen || screenShareTrack) ? (
+                // --- SCREEN SHARE / WHITEBOARD ACTIVE MODE ---
+                <div className="flex-1 flex flex-row overflow-hidden w-full h-full">
+                    <div className="flex-1 h-full bg-black relative flex items-center justify-center p-2">
+                        {isWhiteboardOpen && socket && sessionId ? (
+                            <LiveWhiteboard socket={socket} sessionId={sessionId} isMentor={isMentor} onClose={onCloseWhiteboard} />
+                        ) : screenShareTrack ? (
+                            <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+                                <ParticipantTile trackRef={screenShareTrack!} className="w-full h-full object-contain [&>video]:object-contain" />
                             </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                        ) : null}
+                    </div>
+
+                    <div className="w-64 shrink-0 h-full bg-[#11131a] border-l border-white/5 flex flex-col p-3 gap-3 overflow-y-auto custom-scrollbar">
+                        <div className="text-xs font-bold text-white/50 uppercase tracking-wide mb-1 px-1">Qatnashchilar</div>
+                        {mainTrack && (
+                            <div className="w-full aspect-video rounded-xl overflow-hidden relative bg-slate-800 shrink-0 ring-1 ring-white/10 shadow-lg">
+                                <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
+                                <div className="absolute bottom-1.5 left-1.5 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-lg backdrop-blur-md border border-white/10">
+                                    {isMentor ? "Siz (Mentor)" : "Mentor"}
+                                </div>
+                            </div>
+                        )}
+                        {gridTracks.map((track, i) => (
+                            <div key={track?.participant?.identity || i} className="w-full aspect-video rounded-xl overflow-hidden relative bg-slate-800 border border-slate-700/50 shrink-0">
+                                {track ? <ParticipantTile trackRef={track} className="w-full h-full [&>video]:object-cover" /> : null}
+                                <div className="absolute bottom-1.5 left-1.5 text-[10px] font-bold text-white/90 bg-slate-900/80 px-2 py-0.5 rounded-lg backdrop-blur-sm shadow-sm">
+                                    {track?.participant?.identity || `Talaba ${i + 1}`}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : immersive ? (
+                // --- IMMERSIVE THEATRE MODE ---
+                <div className="flex-1 relative w-full h-full overflow-hidden bg-black">
+                    {/* Main Background Video (Mentor) */}
+                    <div className="absolute inset-0 z-0">
+                        {mainTrack ? (
+                            <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#0a0b10]">
+                                <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center text-white/20 border border-white/10 scale-110 animate-pulse">
+                                    <VideoIcon className="w-10 h-10" />
+                                </div>
+                                <p className="text-white/40 font-bold text-sm tracking-widest uppercase">
+                                    {isMentor ? "Kamerangiz o'chirilgan" : "Ustoz ulanishi kutilmoqda..."}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Floating PiP Window (Self/Others) */}
+                    <div className="absolute bottom-24 right-8 z-10 flex flex-col gap-4 items-end">
+                        {gridTracks.slice(0, 3).map((track, i) => (
+                            <div key={track?.participant?.identity || i} className="w-48 aspect-video rounded-2xl overflow-hidden relative bg-black/40 backdrop-blur-xl border border-white/20 shadow-2xl transition-all hover:scale-105 group">
+                                {track ? <ParticipantTile trackRef={track} className="w-full h-full [&>video]:object-cover" /> : null}
+                                <div className="absolute bottom-2 left-2 text-[9px] font-black text-white bg-black/60 px-2 py-1 rounded-lg backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {track?.participant?.identity || `Talaba ${i + 1}`}
+                                </div>
+                                {track?.participant?.isLocal && (
+                                    <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                // --- CLASSIC GRID MODE ---
+                <>
+                    <div className="flex-1 relative overflow-hidden bg-slate-900 group">
+                        {mainTrack ? (
+                            <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#1a1d2e]">
+                                <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700/50 scale-110 shadow-xl">
+                                    <VideoIcon className="w-10 h-10 opacity-50" />
+                                </div>
+                                <p className="text-slate-500 font-bold text-sm">
+                                    {isMentor ? "Kamerangiz o'chirilgan" : "Ustoz ulanishi kutilmoqda / Kamera o'chiq"}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="h-[178px] shrink-0 flex bg-[#0d0f1a] p-3 gap-3 overflow-x-auto custom-scrollbar border-t border-white/5">
+                        {gridTracks.length === 0 ? (
+                            <div className="h-full px-8 rounded-xl bg-slate-800/30 border border-white/5 flex flex-col items-center justify-center gap-2">
+                                <Users className="w-5 h-5 text-slate-500" />
+                                <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Talabalar kutilmoqda</span>
+                            </div>
+                        ) : (
+                            gridTracks.map((track, i) => (
+                                <div key={track?.participant?.identity || i} className="h-full aspect-video rounded-xl overflow-hidden relative bg-slate-800 shrink-0 ring-1 ring-white/10 shadow-lg">
+                                    {track ? <ParticipantTile trackRef={track} className="w-full h-full [&>video]:object-cover" /> : null}
+                                    <div className="absolute bottom-2 left-2 text-[10px] font-bold text-white bg-black/70 px-2.5 py-1 rounded-lg backdrop-blur-md shadow-sm border border-white/10">
+                                        {track?.participant?.identity || `Talaba ${i + 1}`}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </>
+            )}
 
             {/* Floating Control Bar for generic controls if needed */}
-            {!isMentor && (
+            {!isMentor && !screenShareTrack && !immersive && (
                 <div className="absolute top-4 left-4 z-[100] px-4 py-2 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl">
                     <ControlBar variation="minimal" />
                 </div>

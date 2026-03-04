@@ -22,6 +22,7 @@ export default function AdminPanel() {
     const [expertTab, setExpertTab] = useState('pending'); // 'pending' | 'verified'
     const [jobCategories, setJobCategories] = useState([]);
     const [newCategory, setNewCategory] = useState({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
+    const [platformSettings, setPlatformSettings] = useState({ expert_verification_fee: 50 });
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
 
@@ -100,6 +101,12 @@ export default function AdminPanel() {
             if (expertsRes.ok) setPendingExperts(await expertsRes.json());
             if (verifiedRes.ok) setVerifiedExperts(await verifiedRes.json());
             if (categoriesRes.ok) setJobCategories(await categoriesRes.json());
+
+            // Optional: Fetch settings if endpoint exists
+            try {
+                const settingsRes = await fetch(`${API_URL}/api/admin/settings`, { headers: { Authorization: `Bearer ${token}` } });
+                if (settingsRes.ok) setPlatformSettings(await settingsRes.json());
+            } catch (e) { console.log("Settings endpoint not found, using defaults"); }
         } catch (error) {
             console.error(error);
         } finally {
@@ -200,6 +207,22 @@ export default function AdminPanel() {
         } catch (e) { alert('Xato'); }
     };
 
+    const handleUpdateSettings = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await fetch(`${API_URL}/api/admin/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(platformSettings)
+            });
+            if (res.ok) {
+                alert('Sozlamalar saqlandi!');
+            } else {
+                alert('Xato yuz berdi (Endpoint mavjud emas bo\'lishi mumkin)');
+            }
+        } catch (e) { alert('Xato'); }
+    }
+
     const ImageModal = () => (
         selectedImage ? (
             <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedImage(null)}>
@@ -288,7 +311,8 @@ export default function AdminPanel() {
                         { id: 'topups', label: 'Top-Up', count: topUps.filter((t: any) => t.status === 'pending').length },
                         { id: 'transactions', label: 'Tranzaksiyalar', count: null },
                         { id: 'experts', label: 'Ekspertlar', count: pendingExperts.length },
-                        { id: 'jobs', label: 'Ishlar/Narxlar', count: jobCategories.length }
+                        { id: 'jobs', label: 'Ishlar/Narxlar', count: jobCategories.length },
+                        { id: 'settings', label: 'Sozlamalar', count: null }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -648,6 +672,60 @@ export default function AdminPanel() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Settings Tab */}
+                {activeTab === 'settings' && (
+                    <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
+                        <div className="bg-slate-900 p-8 rounded-[40px] border border-white/5 shadow-2xl">
+                            <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                                <div className="p-3 bg-indigo-600/20 rounded-2xl text-indigo-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                </div>
+                                Platforma Sozlamalari
+                            </h2>
+
+                            <div className="space-y-6">
+                                <div className="p-6 bg-white/5 border border-white/5 rounded-[32px] space-y-4">
+                                    <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div> Ekspertlar Nazorati
+                                    </h3>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-white/80">Eksperni tasdiqlash to'lovi (MALI)</label>
+                                        <div className="flex gap-3">
+                                            <input
+                                                type="number"
+                                                value={platformSettings.expert_verification_fee}
+                                                onChange={(e) => setPlatformSettings({ ...platformSettings, expert_verification_fee: parseInt(e.target.value) || 0 })}
+                                                className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xl font-mono text-emerald-400 focus:border-indigo-500 outline-none transition-all"
+                                                placeholder="50"
+                                            />
+                                            <div className="bg-white/5 border border-white/5 rounded-2xl flex items-center justify-center px-6 text-slate-500 font-bold">MALI</div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 italic mt-2 ml-2">Ushbu to'lov foydalanuvchi ekspert sifatida admin tomonidan tasdiqlangan vaqtda uning hamyonidan yechib olinadi.</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleUpdateSettings}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] py-5 rounded-[28px] font-bold text-lg shadow-2xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3"
+                                >
+                                    O'zgarishlarni saqlash
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-[32px] flex items-start gap-4">
+                            <div className="p-3 bg-amber-500/20 rounded-2xl text-amber-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="text-amber-500 font-bold uppercase tracking-widest text-xs">Diqqat</h4>
+                                <p className="text-white/60 text-xs leading-relaxed">To'lov miqdorini o'zgartirish faqat yangi arizalarga (yoki hali tasdiqlanmaganlarga) ta'sir qiladi. Avval tasdiqlangan ekspertlardan qayta to'lov undirilmaydi.</p>
+                            </div>
                         </div>
                     </div>
                 )}

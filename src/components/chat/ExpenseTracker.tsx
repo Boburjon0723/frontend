@@ -291,7 +291,7 @@ export default function ExpenseTracker() {
             {/* ADD FORM MODAL-LIKE (only shown if showAddForm is true) */}
             {showAddForm && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in" onClick={() => setShowAddForm(false)}>
-                    <GlassCard className="w-full max-w-[400px] p-0 overflow-hidden bg-[#1c242f]/90 border-white/10 animate-scale-in" onClick={e => e.stopPropagation()}>
+                    <GlassCard className="w-full max-w-[400px] p-0 overflow-hidden bg-[rgba(var(--glass-rgb),0.8)] border-white/10 animate-scale-in" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
                             <h3 className="text-white font-bold tracking-tight">Yangi yozuv qo'shish</h3>
                             <button onClick={() => setShowAddForm(false)} className="p-1.5 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-colors">

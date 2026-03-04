@@ -52,7 +52,19 @@ function MessagesPageContent() {
     // Core State
     const [activeCategory, setActiveCategory] = useState("all");
     const [selectedChat, setSelectedChat] = useState<any>(null);
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<any>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('user');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    });
     const [chats, setChats] = useState<any[]>([]);
     const [contacts, setContacts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -88,14 +100,17 @@ function MessagesPageContent() {
 
     // BACKGROUND & THEME SETTINGS
     const [bgBlur, setBgBlur] = useState(8);
-    const [bgImage, setBgImage] = useState("https://wallpapers.com/images/hd/beautiful-mountain-range-4k-scenic-nature-view-nx19pueiwl8x9vsw.jpg");
+    const [bgImageBlur, setBgImageBlur] = useState(20);
+    const [bgImage, setBgImage] = useState("/premium-bg.png");
     const [isDarkMode, setIsDarkMode] = useState(true);
 
     useEffect(() => {
         const savedBlur = localStorage.getItem('app-bg-blur');
+        const savedImageBlur = localStorage.getItem('app-bg-image-blur');
         const savedImage = localStorage.getItem('app-bg-image');
         const savedTheme = localStorage.getItem('app-theme');
         if (savedBlur) setBgBlur(parseInt(savedBlur));
+        if (savedImageBlur) setBgImageBlur(parseInt(savedImageBlur));
         if (savedImage) setBgImage(savedImage);
         if (savedTheme) setIsDarkMode(savedTheme === 'dark');
     }, []);
@@ -103,6 +118,11 @@ function MessagesPageContent() {
     const updateBgBlur = (val: number) => {
         setBgBlur(val);
         localStorage.setItem('app-bg-blur', val.toString());
+    };
+
+    const updateBgImageBlur = (val: number) => {
+        setBgImageBlur(val);
+        localStorage.setItem('app-bg-image-blur', val.toString());
     };
 
     const updateBgImage = (url: string) => {
@@ -407,7 +427,7 @@ function MessagesPageContent() {
     const showDetail = !!selectedChat || isPanelCategory;
 
     return (
-        <div className="h-screen w-full flex items-center justify-center p-0 lg:p-4 overflow-hidden relative overflow-x-hidden">
+        <div className="fixed inset-0 flex items-center justify-center bg-black">
             {/* Global Dynamic Background Image */}
             <div
                 className="absolute inset-0 z-0 transition-all duration-700 ease-in-out"
@@ -415,12 +435,13 @@ function MessagesPageContent() {
                     backgroundImage: `url(${bgImage})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    filter: `blur(${bgBlur}px) brightness(${isDarkMode ? 0.6 : 0.9})`,
-                    transform: 'scale(1.1)' // Prevent blur edges from showing
+                    filter: `blur(${bgImageBlur}px) brightness(${isDarkMode ? 0.6 : 0.9})`,
+                    transform: `scale(${1.1 + (bgImageBlur / 100)})` // Dynamically adjust scale to hide blur edges
                 }}
             />
 
-            <div className="w-full h-full max-w-[1800px] flex flex-col lg:flex-row gap-2 lg:gap-4 relative z-10 pt-4 lg:pt-8">
+            {/* Scaled/Responsive Main Application Frame */}
+            <div className={`w-full h-full ${isExpertMode ? '' : 'max-w-[1800px] lg:h-[calc(100vh-2rem)] lg:rounded-[2rem]'} flex flex-col lg:flex-row gap-2 lg:gap-4 relative z-10 overflow-hidden`}>
 
                 {/* Global Navigation Drawer (Menu) - Premium Glass Style */}
                 {showMenu && (
@@ -508,17 +529,7 @@ function MessagesPageContent() {
                                 <button onClick={() => setShowMenu(true)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white"><MenuIcon className="h-6 w-6" /></button>
                                 <h2 className="text-white font-bold text-lg">MessenjrAli</h2>
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setShowNotifications(!showNotifications)}
-                                        className={`w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all duration-300 relative group ${showNotifications ? 'ring-2 ring-blue-500/50 bg-white/20' : ''}`}
-                                    >
-                                        <Bell className={`h-5 w-5 transition-transform duration-300 ${unreadCount > 0 ? 'group-hover:rotate-12' : ''}`} />
-                                        {unreadCount > 0 && (
-                                            <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-gradient-to-r from-red-500 to-pink-600 rounded-full text-[10px] flex items-center justify-center font-black shadow-lg border-2 border-white/20 pulse-notification">
-                                                {unreadCount}
-                                            </span>
-                                        )}
-                                    </button>
+
                                     <button onClick={() => setShowContactModal(true)} className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all duration-300"><PenSquare className="h-5 w-5" /></button>
                                 </div>
                             </div>
@@ -552,7 +563,7 @@ function MessagesPageContent() {
                 )}
 
                 {/* Left Panel: ChatList */}
-                <aside className={` ${showDetail ? 'hidden lg:block' : (isExpertMode ? 'flex-none' : 'flex-1')} ${isExpertMode ? 'lg:w-0 lg:p-0 w-0 p-0 opacity-0 pointer-events-none absolute lg:relative z-0' : 'lg:w-[380px] lg:p-3 w-full p-2 opacity-100 relative z-10'} transition-all duration-500 ease-in-out lg:h-full flex-shrink-0 flex flex-col overflow-hidden `}>
+                <aside className={` ${showDetail ? 'hidden lg:flex' : 'flex'} ${isExpertMode ? 'lg:w-0 lg:p-0 w-0 p-0 opacity-0 pointer-events-none absolute lg:relative z-0' : 'lg:w-[380px] lg:px-4 w-full px-2 opacity-100 relative z-10'} transition-all duration-500 ease-in-out lg:h-full flex-none flex-col overflow-hidden `}>
                     <ChatList
                         activeCategory={activeCategory}
                         onCategoryChange={setActiveCategory}
@@ -667,8 +678,9 @@ function MessagesPageContent() {
                                                     window.location.href = '/auth';
                                                 }}
                                                 user={currentUser}
-                                                bgSettings={{ blur: bgBlur, image: bgImage, darkMode: isDarkMode }}
+                                                bgSettings={{ blur: bgBlur, imageBlur: bgImageBlur, image: bgImage, isDark: isDarkMode }}
                                                 onUpdateBgBlur={updateBgBlur}
+                                                onUpdateBgImageBlur={updateBgImageBlur}
                                                 onUpdateBgImage={updateBgImage}
                                                 onUpdateTheme={updateTheme}
                                             />
@@ -692,7 +704,7 @@ function MessagesPageContent() {
                                                     />
                                                 )
                                                     : (
-                                                        <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 bg-black/10 backdrop-blur-sm">
+                                                        <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
                                                             <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
                                                                 <MessageSquare className="h-10 w-10 opacity-20" />
                                                             </div>

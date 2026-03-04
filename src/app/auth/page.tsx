@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { useRouter } from 'next/navigation';
+import { Phone, User, Lock, ChevronRight, Globe, AtSign, Eye, EyeOff, Camera, ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
 
 // ✅ FIXED: Default API URL qo'shildi
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -18,18 +20,20 @@ const COUNTRY_CODES = [
 ];
 
 export default function AuthPage() {
-    const [isLogin, setIsLogin] = useState(true);
+    const [isLogin, setIsLogin] = useState(false);
     const [step, setStep] = useState(1);
     const router = useRouter();
 
     // Form Stats
     const [countryCode, setCountryCode] = useState('+998');
     const [phone, setPhone] = useState('');
+    const [email, setEmail] = useState(''); // Added for UI completeness
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [name, setName] = useState('');
     const [surname, setSurname] = useState('');
     const [age, setAge] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false); // ✅ ADDED: Loading state
@@ -72,12 +76,8 @@ export default function AuthPage() {
         e.preventDefault();
         setError('');
 
-        if (!phone || !password || !confirmPassword) {
+        if (!name || !surname || !phone || !password) {
             setError('Please fill all fields');
-            return;
-        }
-        if (password !== confirmPassword) {
-            setError("Passwords don't match");
             return;
         }
         if (password.length < 6) { // ✅ ADDED: Password validation
@@ -131,228 +131,270 @@ export default function AuthPage() {
             setLoading(false); // ✅ ADDED
         }
     };
-
     return (
-        <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
-            {/* Background */}
-            <div
-                className="absolute inset-0 z-0 bg-cover bg-center"
-                style={{
-                    backgroundImage: 'url("/auth-bg.png")', // User provided premium fibers background
-                    filter: 'brightness(0.6)'
-                }}
-            ></div>
+        <div className="min-h-screen relative flex bg-[#121B22] overflow-hidden">
+            {/* LEFT SECTION (FORM) */}
+            <div className="flex-1 lg:flex-[0.6] relative z-20 flex flex-col p-8 lg:p-12 xl:p-16 overflow-hidden">
+                {/* Blur Overlay Transition */}
+                <div className="absolute top-0 right-0 w-[45%] h-full bg-gradient-to-l from-transparent via-[#121B22]/40 to-transparent backdrop-blur-[60px] z-10 pointer-events-none lg:block hidden"></div>
+                {/* Header Branding */}
 
-            <div className="relative z-10 w-full max-w-md">
-                <GlassCard className="!p-8 backdrop-blur-3xl bg-black/40 border-white/10 shadow-2xl animate-slide-up">
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-white mb-2">
-                            {isLogin ? 'Xush Kelibsiz' : 'Ro\'yxatdan o\'tish'}
+                <div className="flex-1 flex flex-col justify-center max-w-[440px] mx-auto w-full relative z-30">
+                    <div className="mb-10">
+                        <h1 className="text-3xl font-bold text-white mb-2 leading-tight">
+                            Welcome MessengerAli
                         </h1>
-                        <p className="text-white/60">
-                            {isLogin ? 'MessenjrAli - Hisobingizga kiring' : step === 1 ? '1-qadam: Asosiy ma\'lumotlar' : '2-qadam: Shaxsiy ma\'lumotlar'}
+                    </div>
+                    <div className="mb-12">
+                        <p className="text-[15px] text-white/50 tracking-wide font-medium">
+                            {isLogin ? 'New to here?' : 'Already A Member?'}
+                            <button
+                                onClick={() => { setIsLogin(!isLogin); setStep(1); }}
+                                className="ml-2 text-blue-400 font-bold hover:text-blue-300 transition-colors"
+                            >
+                                {isLogin ? 'Sign Up' : 'Log In'}
+                            </button>
                         </p>
                     </div>
 
-                    {/* Tabs */}
-                    {step === 1 && (
-                        <div className="flex p-1 bg-white/10 rounded-xl mb-8">
-                            <button
-                                onClick={() => setIsLogin(true)}
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${isLogin ? 'bg-white text-black shadow-lg' : 'text-white/60 hover:text-white'}`}
-                            >
-                                Kirish
-                            </button>
-                            <button
-                                onClick={() => setIsLogin(false)}
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${!isLogin ? 'bg-white text-black shadow-lg' : 'text-white/60 hover:text-white'}`}
-                            >
-                                Ro'yxatdan o'tish
-                            </button>
-                        </div>
-                    )}
-
                     {error && (
-                        <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-200 text-sm text-center">
+                        <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             {error}
                         </div>
                     )}
 
-                    {/* Login Form */}
-                    {isLogin && (
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Telefon raqam</label>
-                                <div className="flex gap-2">
-                                    <select
-                                        value={countryCode}
-                                        onChange={e => setCountryCode(e.target.value)}
-                                        className="px-2 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all appearance-none cursor-pointer text-center font-mono w-[80px]"
-                                        disabled={loading}
-                                    >
-                                        {COUNTRY_CODES.map(c => (
-                                            <option key={c.country} value={c.code} className="text-black">
-                                                {c.code}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="tel"
-                                        value={phone}
-                                        onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '');
-                                            setPhone(val);
-                                        }}
-                                        placeholder="90 123 45 67"
-                                        className="flex-1 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all font-mono"
-                                        disabled={loading}
-                                    />
+                    {/* FORMS */}
+                    <div className="space-y-4">
+                        {isLogin ? (
+                            /* LOGIN FORM */
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div className="space-y-4">
+                                    <div className="relative group">
+                                        <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">Phone</label>
+                                        <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                            <select
+                                                value={countryCode}
+                                                onChange={e => setCountryCode(e.target.value)}
+                                                className="bg-transparent text-white focus:outline-none cursor-pointer font-bold text-sm w-[60px]"
+                                            >
+                                                {COUNTRY_CODES.map(c => <option key={c.country} value={c.code} className="bg-[#121B22]">{c.code}</option>)}
+                                            </select>
+                                            <input
+                                                type="tel"
+                                                value={phone}
+                                                onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                                                placeholder="90 123 45 67"
+                                                className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm ml-2"
+                                            />
+                                            <Phone className="w-4 h-4 text-white/20 group-focus-within:text-blue-500" />
+                                        </div>
+                                    </div>
+
+                                    <div className="relative group">
+                                        <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">Password</label>
+                                        <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={password}
+                                                onChange={e => setPassword(e.target.value)}
+                                                placeholder="••••••••"
+                                                className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm"
+                                            />
+                                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-white/20 hover:text-white transition-colors">
+                                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Parol</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    placeholder="Parolingizni kiriting"
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all"
-                                    disabled={loading}
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full py-3.5 bg-gradient-to-r from-[var(--accent-purple-start)] to-[var(--accent-purple-end)] text-white font-bold rounded-xl shadow-[0_0_20px_rgba(124,77,255,0.4)] hover:shadow-[0_0_30px_rgba(124,77,255,0.6)] hover:scale-[1.02] transition-all mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? 'Yuklanmoqda...' : 'Kirish'}
-                            </button>
-                        </form>
-                    )}
 
-                    {/* Registration Form - Step 1 */}
-                    {!isLogin && step === 1 && (
-                        <form onSubmit={handleRegisterStep1} className="space-y-4">
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Telefon raqam</label>
-                                <div className="flex gap-2">
-                                    <select
-                                        value={countryCode}
-                                        onChange={e => setCountryCode(e.target.value)}
-                                        className="px-2 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all appearance-none cursor-pointer text-center font-mono w-[80px]"
+                                <div className="flex gap-4 pt-4">
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="flex-1 py-4 px-6 bg-blue-500 hover:bg-blue-600 shadow-xl shadow-blue-500/20 text-white font-bold rounded-full transition-all text-sm disabled:opacity-50"
                                     >
-                                        {COUNTRY_CODES.map(c => (
-                                            <option key={c.country} value={c.code} className="text-black">
-                                                {c.code}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="tel"
-                                        value={phone}
-                                        onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '');
-                                            setPhone(val);
-                                        }}
-                                        placeholder="90 123 45 67"
-                                        className="flex-1 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all font-mono"
-                                    />
+                                        {loading ? 'Processing...' : 'Login'}
+                                    </button>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Parol</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    placeholder="Parol o'ylab toping (kamida 6 ta belgi)"
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Parolni tasdiqlang</label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={e => setConfirmPassword(e.target.value)}
-                                    placeholder="Parolni qayta kiriting"
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all"
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                className="w-full py-3.5 bg-gradient-to-r from-[var(--accent-purple-start)] to-[var(--accent-purple-end)] text-white font-bold rounded-xl shadow-[0_0_20px_rgba(124,77,255,0.4)] hover:shadow-[0_0_30px_rgba(124,77,255,0.6)] hover:scale-[1.02] transition-all mt-4"
-                            >
-                                Keyingi
-                            </button>
-                        </form>
-                    )}
+                            </form>
+                        ) : (
+                            /* REGISTRATION FORM */
+                            <div className="space-y-4">
+                                {step === 1 ? (
+                                    <form onSubmit={handleRegisterStep1} className="space-y-4 animate-in slide-in-from-right duration-500">
+                                        <div className="flex gap-4">
+                                            <div className="relative group flex-1">
+                                                <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">First name</label>
+                                                <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                                    <input
+                                                        type="text"
+                                                        value={name}
+                                                        onChange={e => setName(e.target.value)}
+                                                        placeholder="Michał"
+                                                        className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm"
+                                                    />
+                                                    <User className="w-4 h-4 text-white/20 group-focus-within:text-blue-500" />
+                                                </div>
+                                            </div>
+                                            <div className="relative group flex-1">
+                                                <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">Last name</label>
+                                                <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                                    <input
+                                                        type="text"
+                                                        value={surname}
+                                                        onChange={e => setSurname(e.target.value)}
+                                                        placeholder="Masiak"
+                                                        className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm"
+                                                    />
+                                                    <User className="w-4 h-4 text-white/20 group-focus-within:text-blue-500" />
+                                                </div>
+                                            </div>
+                                        </div>
 
-                    {/* Registration Form - Step 2 */}
-                    {!isLogin && step === 2 && (
-                        <form onSubmit={handleRegisterFinal} className="space-y-4">
-                            <div className="bg-white/5 p-3 rounded-xl mb-4 border border-white/5">
-                                <p className="text-xs text-white/50 mb-1">Telefon</p>
-                                <p className="text-white font-mono">{countryCode} {phone}</p>
-                            </div>
+                                        <div className="relative group">
+                                            <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">Phone</label>
+                                            <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                                <select
+                                                    value={countryCode}
+                                                    onChange={e => setCountryCode(e.target.value)}
+                                                    className="bg-transparent text-white focus:outline-none cursor-pointer font-bold text-sm w-[60px]"
+                                                >
+                                                    {COUNTRY_CODES.map(c => <option key={c.country} value={c.code} className="bg-[#121B22]">{c.code}</option>)}
+                                                </select>
+                                                <input
+                                                    type="tel"
+                                                    value={phone}
+                                                    onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                                                    placeholder="90 123 45 67"
+                                                    className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm ml-2"
+                                                />
+                                                <Phone className="w-4 h-4 text-white/20 group-focus-within:text-blue-500" />
+                                            </div>
+                                        </div>
 
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Ism</label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onChange={e => setName(e.target.value)}
-                                    placeholder="Ismingiz"
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all"
-                                    disabled={loading}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Familiya</label>
-                                <input
-                                    type="text"
-                                    value={surname}
-                                    onChange={e => setSurname(e.target.value)}
-                                    placeholder="Familiyangiz"
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all"
-                                    disabled={loading}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-white/80 mb-1.5 ml-1">Yosh</label>
-                                <input
-                                    type="number"
-                                    value={age}
-                                    onChange={e => setAge(e.target.value)}
-                                    placeholder="Yoshingiz"
-                                    min="13"
-                                    max="120"
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[var(--accent-purple-start)] focus:bg-white/10 transition-all"
-                                    disabled={loading}
-                                />
-                            </div>
+                                        <div className="relative group p-[2px] rounded-[18px] bg-gradient-to-r from-blue-500/50 to-purple-500/50">
+                                            <div className="relative bg-[#121B22] rounded-[16px]">
+                                                <label className="absolute left-4 top-3 text-[10px] font-bold text-blue-500 uppercase tracking-wider">Password</label>
+                                                <div className="flex pt-6 pb-3 px-4">
+                                                    <input
+                                                        type={showPassword ? 'text' : 'password'}
+                                                        value={password}
+                                                        onChange={e => setPassword(e.target.value)}
+                                                        placeholder="••••••••"
+                                                        className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm"
+                                                    />
+                                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-white/20 hover:text-white transition-colors">
+                                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(1)}
-                                    className="flex-1 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
-                                    disabled={loading}
-                                >
-                                    Orqaga
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="flex-[2] py-3.5 bg-gradient-to-r from-[var(--accent-purple-start)] to-[var(--accent-purple-end)] text-white font-bold rounded-xl shadow-[0_0_20px_rgba(124,77,255,0.4)] hover:shadow-[0_0_30px_rgba(124,77,255,0.6)] hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {loading ? 'Yuklanmoqda...' : 'Yakunlash'}
-                                </button>
-                            </div>
-                        </form>
-                    )}
+                                        <div className="flex gap-4 pt-4">
+                                            <button
+                                                type="submit"
+                                                className="flex-1 py-4 px-6 bg-blue-500 hover:bg-blue-600 shadow-xl shadow-blue-500/20 text-white font-bold rounded-full transition-all text-sm"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <form onSubmit={handleRegisterFinal} className="space-y-6 animate-in slide-in-from-right duration-500">
+                                        <div className="bg-white/5 p-5 rounded-2xl border border-white/5 relative group">
+                                            <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">Registration Summary</p>
+                                            <div className="space-y-1">
+                                                <p className="text-white font-bold">{name} {surname}</p>
+                                                <p className="text-white/40 text-xs font-mono">{phone}</p>
+                                            </div>
+                                            <button type="button" onClick={() => setStep(1)} className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-400 font-bold text-xs hover:underline">Edit</button>
+                                        </div>
 
-                </GlassCard>
+                                        <div className="space-y-4">
+                                            <div className="relative group">
+                                                <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">Phone number</label>
+                                                <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                                    <select
+                                                        value={countryCode}
+                                                        onChange={e => setCountryCode(e.target.value)}
+                                                        className="bg-transparent text-white focus:outline-none cursor-pointer font-bold text-sm w-[60px]"
+                                                    >
+                                                        {COUNTRY_CODES.map(c => <option key={c.country} value={c.code} className="bg-[#121B22]">{c.code}</option>)}
+                                                    </select>
+                                                    <input
+                                                        type="tel"
+                                                        value={phone}
+                                                        onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                                                        placeholder="90 123 45 67"
+                                                        className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm ml-2"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="relative group">
+                                                <label className="absolute left-4 top-3 text-[10px] font-bold text-white/30 uppercase tracking-wider transition-colors group-focus-within:text-blue-500">Age</label>
+                                                <div className="flex pt-6 pb-3 px-4 bg-white/5 border border-white/10 rounded-2xl focus-within:border-blue-500/50 transition-all">
+                                                    <input
+                                                        type="number"
+                                                        value={age}
+                                                        onChange={e => setAge(e.target.value)}
+                                                        placeholder="25"
+                                                        className="flex-1 bg-transparent text-white focus:outline-none font-bold text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="w-full py-5 bg-gradient-to-r from-blue-500 to-blue-600 shadow-2xl shadow-blue-500/20 text-white font-bold rounded-full hover:scale-[1.02] active:scale-95 transition-all text-sm disabled:opacity-50"
+                                        >
+                                            {loading ? 'Processing...' : 'Create account'}
+                                        </button>
+                                    </form>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer Branding */}
+                <div className="mt-16 flex items-center justify-end">
+                    <p className="text-[11px] text-white/10 font-bold tracking-widest uppercase">© 2026 MESSENJRALY PLATFORM</p>
+                </div>
+            </div>
+
+            {/* RIGHT SECTION (IMAGE) */}
+            <div className="hidden lg:block lg:flex-[0.4] relative overflow-hidden group">
+                <div className="absolute inset-0">
+                    <Image
+                        src="/premium-bg.png"
+                        alt="Landscape"
+                        fill
+                        className="object-cover transition-transform duration-10000 group-hover:scale-110"
+                        priority
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#121B22]/40"></div>
+                </div>
+
+                {/* SVG Divider Curve */}
+                <div className="absolute top-0 bottom-0 -left-px w-24 h-full pointer-events-none stroke-[#121B22]">
+                    <svg className="w-full h-full" viewBox="0 0 100 1000" preserveAspectRatio="none">
+                        <path
+                            d="M0,0 Q50,250 10,500 Q50,750 0,1000 L0,0"
+                            fill="#121B22"
+                        />
+                        <path
+                            d="M0,0 Q50,250 10,500 Q50,750 0,1000"
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="0.5"
+                            strokeOpacity="0.1"
+                            strokeDasharray="4 4"
+                        />
+                    </svg>
+                </div>
             </div>
         </div>
     );

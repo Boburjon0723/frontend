@@ -140,6 +140,8 @@ export default function ChatList({
     setShowNotifications,
     unreadCount = 0
 }: ChatListProps) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
     const handleCategoryChange = (catId: string) => {
         if (onCategoryChange) onCategoryChange(catId);
     };
@@ -177,7 +179,7 @@ export default function ChatList({
             {/* Sticky Header / Search / Categories Container */}
             <div className={`sticky top-0 z-20 backdrop-blur-xl border-b border-white/5 ${(hideHeader && hideCategories) ? 'hidden lg:block' : 'block'}`}>
                 {/* Header / Search部 */}
-                <div className={`p-4 lg:pt-6 flex-col gap-4 ${hideHeader ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'}`}>
+                <div className={`p-4 flex-col gap-4 ${hideHeader ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'}`}>
                     <div className="flex items-center justify-between">
                         <button
                             onClick={() => setShowMenu(!showMenu)}
@@ -193,7 +195,7 @@ export default function ChatList({
                             <PenSquare className="h-5 w-5" />
                         </button>
 
-                        {currentUser?.is_expert && (
+                        {mounted && currentUser?.is_expert ? (
                             <button
                                 onClick={onToggleExpertMode}
                                 title={isExpertMode ? "Mijoz ko'rinishi" : "Ekspert paneli"}
@@ -201,20 +203,7 @@ export default function ChatList({
                             >
                                 <Layout className="h-5 w-5" />
                             </button>
-                        )}
-
-                        {/* DESKTOP NOTIFICATION BELL */}
-                        <button
-                            onClick={() => setShowNotifications && setShowNotifications(!showNotifications)}
-                            className={`w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all duration-300 relative group hidden lg:flex ${showNotifications ? 'ring-2 ring-blue-500/50 bg-white/20' : ''}`}
-                        >
-                            <Bell className={`h-5 w-5 transition-transform duration-300 ${unreadCount > 0 ? 'group-hover:rotate-12' : ''}`} />
-                            {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-gradient-to-r from-red-500 to-pink-600 rounded-full text-[9px] flex items-center justify-center font-black shadow-lg border border-white/20 pulse-notification">
-                                    {unreadCount}
-                                </span>
-                            )}
-                        </button>
+                        ) : null}
                     </div>
 
                     <div className="relative group">
@@ -313,7 +302,9 @@ export default function ChatList({
                                             <span className="text-[10px] text-white/30 uppercase tracking-tighter">{chat.time}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <p className="text-xs text-white/50 truncate group-hover:text-white/70 transition-colors">{isTrade ? 'Savdo muloqoti' : chat.message}</p>
+                                            <p className="text-xs text-white/50 truncate group-hover:text-white/70 transition-colors">
+                                                {isTrade ? 'Savdo muloqoti' : (chat.message?.includes('darsni boshladi') && !chat.message?.startsWith('🚀') ? `🚀 ${chat.message}` : chat.message)}
+                                            </p>
                                             {chat.unread > 0 && (
                                                 <div className="min-w-[1.25rem] h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white px-1 shadow-lg shadow-blue-500/20">
                                                     {chat.unread}

@@ -76,18 +76,27 @@ export function LiveChatPanel({ socket, sessionId, user, className = "" }: LiveC
                     <div className="text-white/30 text-xs text-center mt-4">Xabarlar yo'q</div>
                 ) : (
                     chatMessages.map(msg => (
-                        <div key={msg.id} className="flex gap-2.5 text-sm animate-slide-up">
-                            <img
-                                src={msg.avatar && msg.avatar.includes('http') ? msg.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${msg.avatar?.startsWith('/') ? '' : '/'}${msg.avatar || ''}`}
-                                alt="avatar"
-                                className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-white/10"
-                                onError={(e: any) => { e.target.src = "https://i.pravatar.cc/150?img=5" }}
-                            />
-                            <div>
-                                <p className="leading-snug bg-white/5 px-3 py-2 rounded-xl rounded-tl-sm border border-white/5">
-                                    <span className="font-bold text-white/80 mr-1.5">{msg.sender}:</span>
-                                    <span className="text-white/90 break-words">{msg.text}</span>
-                                </p>
+                        <div key={msg.id} className="flex gap-3.5 text-sm animate-slide-up group">
+                            <div className="relative shrink-0">
+                                <img
+                                    src={msg.avatar && msg.avatar.includes('http') ? msg.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${msg.avatar?.startsWith('/') ? '' : '/'}${msg.avatar || ''}`}
+                                    alt="avatar"
+                                    className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-lg"
+                                    onError={(e: any) => { e.target.src = "https://i.pravatar.cc/150?img=5" }}
+                                />
+                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border border-[#1c1f2b]"></div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest opacity-80 group-hover:text-blue-400/60 transition-colors">
+                                        {msg.sender}
+                                    </p>
+                                    <div className="inline-block px-3.5 py-2.5 rounded-2xl rounded-tl-none bg-white/5 border border-white/5 shadow-sm group-hover:bg-white/[0.08] transition-colors max-w-[90%]">
+                                        <p className="text-white/90 text-[13px] leading-relaxed break-words font-medium">
+                                            {msg.text}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ))

@@ -5,8 +5,11 @@ import SendCoinModal from './SendCoinModal';
 import MediaUploadModal from './MediaUploadModal';
 import MediaViewerOverlay from './MediaViewerOverlay';
 import LiveWorkspace from './LiveWorkspace';
+import LiveKitRoomWrapper from './LiveKitRoomWrapper';
 import { useSocket } from '@/context/SocketContext';
 import { apiFetch } from '@/lib/api';
+import { summarizeChat } from '@/lib/summarize';
+import { maliDB, OfflineMessage } from '@/lib/indexeddb';
 
 // Mock Messages (Initial State)
 const INITIAL_MESSAGES: any[] = [];
@@ -86,6 +89,42 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const [isSelecting, setIsSelecting] = useState(false);
     const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
 
+    // AI Summarization
+    const [isSummarizing, setIsSummarizing] = useState(false);
+    const [chatSummary, setChatSummary] = useState<string | null>(null);
+    const [summaryError, setSummaryError] = useState<string | null>(null);
+
+    const handleSummarizeChat = async () => {
+        if (chatSummary) {
+            setChatSummary(null);
+            return;
+        }
+        setIsSummarizing(true);
+        setSummaryError(null);
+
+        const textMessages = messages
+            .filter(m => m.type === 'text')
+            .slice(-50)
+            .map(m => `${m.senderName || (m.isOwn ? 'Men' : 'Suhbatdosh')}: ${m.text}`)
+            .join('. ');
+
+        if (!textMessages.trim()) {
+            setSummaryError("Xabarlar yetarli emas.");
+            setIsSummarizing(false);
+            return;
+        }
+
+        const summary = await summarizeChat(textMessages);
+        if (summary === "XIZMAT_BAND") {
+            setSummaryError("AI modeli band, birozdan so'ng qayta urinib ko'ring.");
+        } else if (summary) {
+            setChatSummary(summary);
+        } else {
+            setSummaryError("API xatosi. HuggingFace Token kiritilmagan bo'lishi mumkin.");
+        }
+        setIsSummarizing(false);
+    };
+
     const toggleSelection = (msgId: string) => {
         setSelectedMessageIds(prev =>
             prev.includes(msgId) ? prev.filter(id => id !== msgId) : [...prev, msgId]
@@ -109,6 +148,50 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             console.error(e);
         }
     };
+
+    // Offline / Online Status and Sync
+    const [isNetworkOnline, setIsNetworkOnline] = useState(true);
+
+    useEffect(() => {
+        setIsNetworkOnline(navigator.onLine);
+        const handleOnline = () => setIsNetworkOnline(true);
+        const handleOffline = () => setIsNetworkOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // Sync Offline Messages when coming back online
+    useEffect(() => {
+        if (isNetworkOnline && isConnected && socket && chat) {
+            const syncMessages = async () => {
+                try {
+                    const pendingMsgs = await maliDB.getMessagesForChat(chat.id);
+                    if (pendingMsgs.length > 0) {
+                        for (const msg of pendingMsgs) {
+                            if (msg.type === 'text') {
+                                socket.emit('send_message', {
+                                    roomId: msg.chatId,
+                                    content: msg.text,
+                                    type: 'text',
+                                    clientSideId: msg.id,
+                                    parentId: msg.parentId
+                                });
+                            }
+                            // Media specific sync logic would go here if needed
+                            await maliDB.deleteMessage(msg.id);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to sync offline messages:", e);
+                }
+            };
+            syncMessages();
+        }
+    }, [isNetworkOnline, isConnected, socket, chat?.id]);
 
     const handleDeleteMessage = async (msg: any) => {
         if (!chat || !msg.id) return;
@@ -333,12 +416,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             });
 
             socket.on('call_signal', async (data: any) => {
-                if (!pcRef.current) {
-                    if (data.signal && (data.signal.candidate || (typeof data.signal === 'string' && data.signal.includes('candidate')))) {
-                        pendingCandidatesRef.current.push(data.signal);
-                    }
-                    return;
-                }
+                if (!pcRef.current) return;
 
                 try {
                     if (data.signal.type === 'offer') {
@@ -397,27 +475,11 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                {
-                    urls: 'turn:openrelay.metered.ca:80',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                {
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                {
-                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
             ]
         });
-
-        pc.oniceconnectionstatechange = () => {
-            console.log("[WebRTC] ICE Connection State:", pc.iceConnectionState);
-        };
 
         pc.onicecandidate = (event) => {
             if (event.candidate && socket) {
@@ -454,16 +516,25 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         }
     };
 
-    const handleCall = async (overrideType?: 'video' | 'audio') => {
+    const handleCall = async () => {
         if (!socket || !chat) return;
         const targetUserId = String(chat.otherUser?.id || chat.userId || chat.id);
         const myName = JSON.parse(localStorage.getItem('user') || '{}').name || "User";
 
-        const actualCallType = overrideType || callType;
-        if (overrideType) setCallType(overrideType);
-
         setIsCalling(true);
-        const stream = await startLocalStream(actualCallType === 'video');
+
+        if (callType === 'video') {
+            // LiveKit handles media itself
+            socket.emit('call_user', {
+                targetUserId,
+                fromName: myName,
+                signal: { type: 'livekit' },
+                callType: 'video'
+            });
+            return;
+        }
+
+        const stream = await startLocalStream(false); // audio only P2P
         const pc = initializePeerConnection(targetUserId);
 
         if (stream) {
@@ -477,7 +548,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             targetUserId,
             fromName: myName,
             signal: offer,
-            callType: actualCallType
+            callType: 'audio'
         });
     };
 
@@ -487,7 +558,12 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         setIsCalling(true);
         startCallTimer();
 
-        const stream = await startLocalStream(callType === 'video');
+        if (callType === 'video') {
+            socket.emit('accept_call', { to: callData.from, signal: { type: 'livekit' } });
+            return;
+        }
+
+        const stream = await startLocalStream(false);
         const pc = initializePeerConnection(callData.from);
 
         if (stream) {
@@ -602,6 +678,42 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         }
     }, [chat?.id, onMarkAsRead]);
 
+    // Handle incoming messages_read from socket
+    useEffect(() => {
+        if (!socket || !chat?.id) return;
+        const handleMessagesRead = (data: { roomId: string, messageIds: string[], readBy: string }) => {
+            if (data.roomId === chat.id && data.readBy !== JSON.parse(localStorage.getItem('user') || '{}').id) {
+                setMessages(prev => prev.map(m =>
+                    data.messageIds.includes(m.id) ? { ...m, is_read: true } : m
+                ));
+            }
+        };
+        socket.on('messages_read', handleMessagesRead);
+        return () => { socket.off('messages_read', handleMessagesRead); };
+    }, [socket, chat?.id]);
+
+    // Intersection Observer for marking messages as read
+    const observer = useRef<IntersectionObserver | null>(null);
+    const observeMessage = useCallback((node: HTMLDivElement | null, msg: any) => {
+        if (!node || !socket || !chat?.id) return;
+        if (msg.sender === 'me' || msg.is_read) return; // Only observe unread messages from them
+
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                socket.emit('mark_messages_read', {
+                    roomId: chat.id,
+                    messageIds: [msg.id]
+                });
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_read: true } : m));
+                observer.current?.disconnect();
+            }
+        }, { threshold: 0.5 }); // Message should be at least 50% visible
+
+        observer.current.observe(node);
+    }, [socket, chat?.id]);
+
     useEffect(() => {
         if (!socket || !chat) return;
         setMessages([]);
@@ -618,7 +730,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         sender: String(m.sender_id) === String(user.id) ? 'me' : 'them',
                         time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         type: m.type || 'text',
-                        metadata: m.metadata
+                        metadata: m.metadata,
+                        is_read: m.is_read
                     }));
                     setMessages(mapped);
                     setTimeout(() => scrollToBottom('auto'), 50);
@@ -640,7 +753,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                     time: new Date(message.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     type: message.type || 'text',
                     clientSideId: message.clientSideId,
-                    metadata: message.metadata
+                    metadata: message.metadata,
+                    is_read: message.is_read || false
                 };
                 setMessages((prev) => {
                     const exists = prev.some(m => String(m.id) === String(newMessage.id));
@@ -664,27 +778,52 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         return () => { socket.off('receive_message', handleReceiveMessage); };
     }, [socket, chat, markAsRead]);
 
-    const sendMessage = () => {
-        if (!inputValue.trim() || !chat || !socket) return;
+    const sendMessage = async () => {
+        if (!inputValue.trim() || !chat) return;
         const clientSideId = `temp_${Date.now()}`;
-        socket.emit('send_message', {
-            roomId: chat.id,
-            content: inputValue,
-            type: 'text',
-            clientSideId,
-            parentId: replyTo?.id
-        });
+        const inputContent = inputValue;
+        const currentReplyTo = replyTo;
+
+        setInputValue("");
+        setReplyTo(null);
+
+        // Optimistic UI Update
         setMessages(prev => [...prev, {
             id: clientSideId,
-            text: inputValue,
+            text: inputContent,
             sender: 'me',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             type: 'text',
-            parentId: replyTo?.id,
-            parentMessage: replyTo
+            parentId: currentReplyTo?.id,
+            parentMessage: currentReplyTo,
+            isPending: !isNetworkOnline || !isConnected
         }]);
-        setInputValue("");
-        setReplyTo(null);
+
+        if (isNetworkOnline && isConnected && socket) {
+            socket.emit('send_message', {
+                roomId: chat.id,
+                content: inputContent,
+                type: 'text',
+                clientSideId,
+                parentId: currentReplyTo?.id
+            });
+        } else {
+            // Offline - Save to IndexedDB
+            const offlineMsg: OfflineMessage = {
+                id: clientSideId,
+                chatId: chat.id,
+                text: inputContent,
+                type: 'text',
+                timestamp: Date.now(),
+                status: 'pending',
+                parentId: currentReplyTo?.id
+            };
+            try {
+                await maliDB.saveMessage(offlineMsg);
+            } catch (e) {
+                console.error("Failed to save offline msg", e);
+            }
+        }
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isFolder = false) => {
@@ -737,8 +876,12 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                             type: mimetype.startsWith('image/') ? 'image' : (mimetype.startsWith('video/') ? 'video' : (mimetype.startsWith('audio/') ? 'voice' : 'file')),
                             clientSideId: tempId,
                             caption: i === 0 ? caption : undefined,
-                            size: uploadedFile.size,
-                            mimetype: uploadedFile.mimetype,
+                            metadata: {
+                                name: file.name,
+                                file_name: file.name,
+                                size: file.size,
+                                mimetype: mimetype
+                            },
                             parentId: currentReplyTo?.id
                         });
                     }
@@ -851,9 +994,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const isOnlineHeader = chat.online || isOnline || chat.otherUser?.online;
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative animate-fade-in lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
             {/* Header */}
-            <header className="flex items-center justify-between p-4 lg:pt-4 pt-[max(2rem,env(safe-area-inset-top))] border-b border-white/10 z-20 glass-premium shrink-0">
+            <header className="flex items-center justify-between p-4 lg:pt-4 pt-[max(2rem,env(safe-area-inset-top))] border-b border-white/10 z-20 shrink-0 backdrop-blur-xl">
                 {debugError && (
                     <div className="absolute top-full left-0 right-0 bg-red-500/80 text-white text-[10px] p-1 text-center animate-shake">
                         {debugError}
@@ -930,6 +1073,17 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                             </button>
                             <button
+                                onClick={handleSummarizeChat}
+                                className={`p-2 rounded-full transition-all hidden sm:block ${chatSummary ? 'bg-purple-500/20 text-purple-400' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                title="Chatni AI yordamida qisqacha qilish"
+                            >
+                                {isSummarizing ? (
+                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                )}
+                            </button>
+                            <button
                                 onClick={() => setIsSelecting(true)}
                                 className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors hidden sm:block"
                                 title="Xabarlarni tanlash"
@@ -939,14 +1093,14 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                             {!isTrade && (
                                 <div className="flex items-center gap-1">
                                     <button
-                                        onClick={() => handleCall('audio')}
+                                        onClick={() => { setCallType('audio'); setTimeout(() => handleCall(), 0); }}
                                         className="p-2 text-white/60 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
                                         title="Ovozli chaqiruv"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                     </button>
                                     <button
-                                        onClick={() => handleCall('video')}
+                                        onClick={() => { setCallType('video'); setTimeout(() => handleCall(), 0); }}
                                         className="p-2 text-white/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
                                         title="Videochaqiruv"
                                     >
@@ -1007,8 +1161,33 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                 )}
             </header>
 
+            {/* AI Summary Banner */}
+            {chatSummary && (
+                <div className="z-10 px-4 mt-2">
+                    <div className="bg-purple-900/40 backdrop-blur-xl border border-purple-500/30 rounded-2xl p-4 shadow-lg animate-slide-down relative">
+                        <button onClick={() => setChatSummary(null)} className="absolute top-2 right-2 p-1 text-white/50 hover:text-white bg-white/5 rounded-full">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <span className="text-sm font-bold text-purple-200">AI Xulosa (Oxirgi xabarlar asosida)</span>
+                        </div>
+                        <p className="text-sm text-white/90 leading-relaxed pl-7">{chatSummary}</p>
+                    </div>
+                </div>
+            )}
+
+            {summaryError && (
+                <div className="z-10 px-4 mt-2">
+                    <div className="bg-red-900/40 backdrop-blur-xl border border-red-500/30 rounded-2xl p-3 shadow-lg flex justify-between items-center animate-slide-down">
+                        <span className="text-xs text-red-200">{summaryError}</span>
+                        <button onClick={() => setSummaryError(null)} className="text-white/50 hover:text-white p-1 ml-2"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                </div>
+            )}
+
             {/* Special Banners Container */}
-            <div className="z-10 px-4 space-y-2">
+            <div className="z-10 px-4 space-y-2 mt-2">
                 {/* Unknown Contact Bar */}
                 {!isContact && !isTrade && (
                     <div className="bg-[#1e293b]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-3 flex items-center justify-between shadow-lg animate-slide-up">
@@ -1090,22 +1269,23 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         (new Date(msg.created_at || Date.now()).getTime() - new Date(prevMsg.created_at || Date.now()).getTime() < 300000); // 5 minutes
 
                     return (
-                        <MessageBubble
-                            key={msg.id || i}
-                            message={{ ...msg, timestamp: msg.time, isOwn: msg.sender === 'me' }}
-                            onReply={setReplyTo}
-                            isSelecting={isSelecting}
-                            isSelected={selectedMessageIds.includes(msg.id)}
-                            onSelect={() => toggleSelection(msg.id)}
-                            uploadProgress={uploadProgresses[msg.id]}
-                            onMediaClick={(url, type) => setViewerMedia({ url, type })}
-                            onForward={handleForwardMessage}
-                            onDelete={handleDeleteMessage}
-                            isContinuation={isContinuation}
-                            onReplyClick={handleReplyClick}
-                            activeAudioId={activeAudioId}
-                            onAudioPlay={setActiveAudioId}
-                        />
+                        <div key={msg.id || i} ref={(node) => observeMessage(node, msg)}>
+                            <MessageBubble
+                                message={{ ...msg, timestamp: msg.time, isOwn: msg.sender === 'me' }}
+                                onReply={setReplyTo}
+                                isSelecting={isSelecting}
+                                isSelected={selectedMessageIds.includes(msg.id)}
+                                onSelect={() => toggleSelection(msg.id)}
+                                uploadProgress={uploadProgresses[msg.id]}
+                                onMediaClick={(url, type) => setViewerMedia({ url, type })}
+                                onForward={handleForwardMessage}
+                                onDelete={handleDeleteMessage}
+                                isContinuation={isContinuation}
+                                onReplyClick={handleReplyClick}
+                                activeAudioId={activeAudioId}
+                                onAudioPlay={setActiveAudioId}
+                            />
+                        </div>
                     );
                 })}
                 <div ref={messagesEndRef} />
@@ -1212,99 +1392,111 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         callType={callType}
                     />
                 ) : (
-                    <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex flex-col items-center justify-between py-20 animate-fade-in shadow-2xl">
-                        <div className="flex flex-col items-center">
-                            <div className="relative group">
-                                {callType === 'video' ? (
-                                    <div className="relative w-full max-w-4xl h-[60vh] bg-black/40 rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
-                                        <video
-                                            ref={remoteVideoRef}
-                                            autoPlay
-                                            playsInline
-                                            className="w-full h-full object-cover"
-                                        />
-                                        {/* Local View (PiP) */}
-                                        <div className="absolute top-4 right-4 w-32 h-44 rounded-2xl overflow-hidden border border-white/20 shadow-xl bg-black/40 group-hover:scale-105 transition-transform">
-                                            <video
-                                                ref={localVideoRef}
-                                                autoPlay
-                                                playsInline
-                                                muted
-                                                className="w-full h-full object-cover mirror"
-                                            />
-                                        </div>
-                                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 glass-premium px-6 py-2 rounded-full border border-white/10 flex items-center gap-3">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span className="text-white text-sm font-medium">{callData?.fromName || displayName}</span>
-                                        </div>
-                                    </div>
+                    <div className="absolute inset-0 z-[100] bg-[#0d0d0f]/90 backdrop-blur-2xl flex flex-col items-center justify-between py-16 animate-fade-in shadow-2xl">
+                        {/* Elegant floating background glow */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] max-w-[800px] max-h-[800px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+                        <div className="flex flex-col items-center z-10 w-full px-8">
+                            <div className="text-center mb-12 animate-slide-down">
+                                <h2 className="text-3xl font-extrabold text-white tracking-wide mb-2">{callData?.fromName || displayName}</h2>
+                                {isIncomingCall ? (
+                                    <p className="text-blue-400 font-medium tracking-widest uppercase text-sm animate-pulse flex items-center justify-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                        Kiruvchi {callType === 'video' ? 'Video' : 'Ovozli'} Qo'ng'iroq...
+                                    </p>
                                 ) : (
-                                    <div className="w-32 h-32 rounded-full glass-premium border-2 border-white/20 flex items-center justify-center text-5xl font-bold text-white mb-6 shadow-2xl overflow-hidden animate-pulse-subtle">
-                                        {(() => {
-                                            const avatar = chat?.avatar || chat?.otherUser?.avatar || chat?.otherUser?.avatar_url || callData?.fromAvatar;
-                                            if (avatar && avatar !== 'null' && avatar !== '') {
-                                                const src = avatar.startsWith('http') ? avatar : (avatar.startsWith('data:') ? avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`);
-                                                return <img src={src} className="w-full h-full object-cover" />;
-                                            }
-                                            return (displayName || callData?.fromName || "?")[0].toUpperCase();
-                                        })()}
+                                    <div className="flex flex-col items-center gap-2">
+                                        <p className="text-white/40 text-[11px] font-bold uppercase tracking-[0.2em] px-3 py-1 bg-white/5 rounded-full">{callType === 'video' ? 'Videochaqiruv' : 'Ovozli chaqiruv'}</p>
+                                        <p className="text-blue-400 font-mono text-2xl tracking-widest font-light">{formatCallTime(callTimer)}</p>
                                     </div>
                                 )}
                             </div>
-                            <h2 className={`font-bold text-white transition-all ${callType === 'video' ? 'text-xl mt-4 opacity-60' : 'text-3xl mb-2'}`}>{callData?.fromName || displayName}</h2>
-                            {isIncomingCall ? (
-                                <p className="text-blue-400 animate-bounce tracking-wide">Sizga qo'ng'iroq qilinmoqda...</p>
-                            ) : (
-                                <div className="flex flex-col items-center gap-1">
-                                    <p className="text-white/40 text-xs uppercase tracking-[0.2em]">{callType === 'video' ? 'Videochaqiruv' : 'Ovozli chaqiruv'}</p>
-                                    <p className="text-blue-400 font-mono text-lg tracking-widest">{formatCallTime(callTimer)}</p>
-                                    {callType !== 'video' && (
-                                        <p className="text-white/20 text-[10px] max-w-[200px] text-center mt-4 italic opacity-50">Agar videochaqiruvni boshlamoqchi bo'lsangiz, kamera belgisini bosing.</p>
-                                    )}
-                                </div>
-                            )}
+
+                            <div className="relative group">
+                                {callType === 'video' ? (
+                                    <div className="relative w-full max-w-4xl h-[60vh] bg-black/60 rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl rings-2 ring-white/5">
+                                        <LiveKitRoomWrapper
+                                            sessionId={chat?.id || 'demo-room'}
+                                            onDisconnected={handleEndCall}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <div className="absolute inset-0 rounded-full animate-ping-slow bg-blue-500/20" />
+                                        <div className="absolute -inset-4 rounded-full animate-ping-slower bg-blue-500/10" />
+                                        <div className="w-40 h-40 rounded-full glass-premium border-2 border-white/20 flex items-center justify-center text-5xl font-bold text-white shadow-[0_0_50px_rgba(59,130,246,0.5)] overflow-hidden relative z-10">
+                                            {(() => {
+                                                const avatar = chat?.avatar || chat?.otherUser?.avatar || chat?.otherUser?.avatar_url || callData?.fromAvatar;
+                                                if (avatar && avatar !== 'null' && avatar !== '') {
+                                                    const src = avatar.startsWith('http') ? avatar : (avatar.startsWith('data:') ? avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`);
+                                                    return <img src={src} className="w-full h-full object-cover" />;
+                                                }
+                                                return (displayName || callData?.fromName || "?")[0].toUpperCase();
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-8">
+                        <div className="flex items-center justify-center w-full z-10 pb-8">
                             {isIncomingCall ? (
-                                <div className="flex gap-12">
-                                    <button onClick={handleRejectCall} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                    <button onClick={handleAcceptCall} className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                    </button>
+                                <div className="flex items-center gap-16">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <button onClick={handleRejectCall} className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-110 active:scale-95 transition-all duration-300">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 rotate-[135deg]" fill="currentColor" viewBox="0 0 24 24"><path d="M21 15.46l-5.27-.61-2.52 2.52c-2.83-1.44-5.15-3.75-6.59-6.59l2.53-2.53L8.54 3H3.03C2.45 13.15 10.85 21.56 21 21v-5.54z" /></svg>
+                                        </button>
+                                        <span className="text-white/60 text-xs font-bold uppercase tracking-wider">Rad etish</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="relative">
+                                            <div className="absolute inset-0 rounded-full animate-ping bg-emerald-500/40" />
+                                            <button onClick={handleAcceptCall} className="relative w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:scale-110 active:scale-95 transition-all duration-300">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                            </button>
+                                        </div>
+                                        <span className="text-white/60 text-xs font-bold uppercase tracking-wider">Qabul qilish</span>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-6">
-                                    <button
-                                        onClick={async () => {
-                                            const newType = callType === 'video' ? 'audio' : 'video';
-                                            setCallType(newType);
-                                            // Update stream if call is active
-                                            if (isCalling && !isIncomingCall) {
-                                                const stream = await startLocalStream(newType === 'video');
-                                                if (stream && pcRef.current) {
-                                                    const videoTrack = stream.getVideoTracks()[0];
-                                                    const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
-                                                    if (sender && videoTrack) {
-                                                        sender.replaceTrack(videoTrack);
-                                                    } else if (videoTrack) {
-                                                        pcRef.current.addTrack(videoTrack, stream);
+                                <div className="glass-premium px-8 py-4 rounded-full border border-white/10 flex items-center gap-8 shadow-2xl bg-black/40">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <button
+                                            onClick={async () => {
+                                                const newType = callType === 'video' ? 'audio' : 'video';
+                                                setCallType(newType);
+                                                if (isCalling && !isIncomingCall) {
+                                                    const stream = await startLocalStream(newType === 'video');
+                                                    if (stream && pcRef.current) {
+                                                        const videoTrack = stream.getVideoTracks()[0];
+                                                        const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
+                                                        if (sender && videoTrack) {
+                                                            sender.replaceTrack(videoTrack);
+                                                        } else if (videoTrack) {
+                                                            pcRef.current.addTrack(videoTrack, stream);
+                                                        }
                                                     }
                                                 }
-                                            }
-                                        }}
-                                        className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all shadow-xl ${callType === 'video' ? 'bg-blue-500' : 'glass-premium border border-white/10 hover:bg-white/10'}`}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                    </button>
-                                    <button onClick={handleEndCall} className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center shadow-2xl shadow-red-500/40 hover:scale-105 active:scale-95 transition-all">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 rotate-[135deg]" fill="currentColor" viewBox="0 0 24 24"><path d="M21 15.46l-5.27-.61-2.52 2.52c-2.83-1.44-5.15-3.75-6.59-6.59l2.53-2.53L8.54 3H3.03C2.45 13.15 10.85 21.56 21 21v-5.54z" /></svg>
-                                    </button>
-                                    <button className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all shadow-xl glass-premium border border-white/10 hover:bg-white/10`}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                    </button>
+                                            }}
+                                            className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-105 active:scale-95 ${callType === 'video' ? 'bg-blue-500 shadow-blue-500/50' : 'bg-white/10 hover:bg-white/20 border border-white/10'}`}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                        </button>
+                                        <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Kamera</span>
+                                    </div>
+
+                                    <div className="flex flex-col items-center gap-2 -mt-4">
+                                        <button onClick={handleEndCall} className="w-20 h-20 rounded-[2rem] bg-red-500 hover:bg-red-400 text-white flex items-center justify-center shadow-[0_0_40px_rgba(239,68,68,0.5)] hover:scale-110 active:scale-95 transition-all duration-300">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 rotate-[135deg]" fill="currentColor" viewBox="0 0 24 24"><path d="M21 15.46l-5.27-.61-2.52 2.52c-2.83-1.44-5.15-3.75-6.59-6.59l2.53-2.53L8.54 3H3.03C2.45 13.15 10.85 21.56 21 21v-5.54z" /></svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-col items-center gap-2">
+                                        <button className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-105 active:scale-95 bg-white/10 hover:bg-white/20 border border-white/10`}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                                        </button>
+                                        <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Ovozsiz</span>
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -11,6 +11,7 @@ import {
 } from '@livekit/components-react';
 import { Track, ConnectionState } from 'livekit-client';
 import { LiveVideoFrame } from './shared/LiveVideoFrame';
+import RecordingPlaybackModal from './shared/RecordingPlaybackModal';
 import '@livekit/components-styles';
 
 import {
@@ -47,6 +48,8 @@ import {
     LayoutGrid,
     Settings,
     Maximize2,
+    PenTool,
+    MonitorOff,
 } from 'lucide-react';
 
 interface SpecialistDashboardProps {
@@ -57,7 +60,7 @@ interface SpecialistDashboardProps {
 }
 
 export default function SpecialistDashboard({ user, sessionId, socket, onBack }: SpecialistDashboardProps) {
-    const [activeTab, setActiveTab] = useState<'attendees' | 'materials' | 'chat'>('attendees');
+    const [activeTab, setActiveTab] = useState<'attendees' | 'materials' | 'chat' | 'history'>('attendees');
     const [sessionNotes, setSessionNotes] = useState('');
     const [chatInput, setChatInput] = useState('');
     const [quizScore] = useState({ current: 0, total: 0 });
@@ -70,11 +73,8 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Groups State
-    const [groups, setGroups] = useState([
-        { id: '1', name: 'Oliy Tarix', time: '14:00' },
-        { id: '2', name: 'Ingliz tili (IELTS)', time: '16:30' },
-    ]);
-    const [selectedGroupId, setSelectedGroupId] = useState('1');
+    const [groups, setGroups] = useState<any[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState(sessionId || '');
     const [showNewGroupPrompt, setShowNewGroupPrompt] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupTime, setNewGroupTime] = useState('');
@@ -91,14 +91,20 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     const [bookings, setBookings] = useState<any[]>([]);
     const [isLoadingBookings, setIsLoadingBookings] = useState(false);
 
+    // History & Playback State
+    const [pastSessions, setPastSessions] = useState<any[]>([]);
+    const [playbackSession, setPlaybackSession] = useState<any>(null);
+
     // Chat State
     const [chatMessages, setChatMessages] = useState<any[]>([]);
+    const [isLessonStarted, setIsLessonStarted] = useState(false);
 
     // Media State
     const [isMicOn, setIsMicOn] = useState(false);
     const [isCamOn, setIsCamOn] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
+    const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
 
     // Modal States
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -160,29 +166,68 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
             }
         };
 
+        const fetchHistory = async () => {
+            try {
+                const res = await apiFetch(`/api/sessions/history`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setPastSessions(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch session history", err);
+            }
+        };
+
+        // Fetch Expert Groups
+        const fetchGroups = async () => {
+            if (!user?.id) return;
+            try {
+                const res = await apiFetch(`/api/chats/expert/${user.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setGroups(data);
+                    // If no valid sessionId was provided, default to the first group
+                    if ((!sessionId || sessionId === 'demo-session-id') && data.length > 0) {
+                        setSelectedGroupId(data[0].id);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch expert groups", err);
+            }
+        };
 
         fetchMaterials();
         fetchQuizzes();
         fetchBookings();
+        fetchHistory();
+        fetchGroups();
 
         // Fetch LiveKit Token
         const fetchLiveKitToken = async () => {
+            if (!selectedGroupId || selectedGroupId === 'demo-session-id') {
+                console.log("[SpecialistDashboard] Skipping LiveKit token fetch for invalid groupId:", selectedGroupId);
+                return;
+            }
             try {
-                const res = await apiFetch(`/api/livekit/token?room=${selectedGroupId}`);
+                console.log(`[SpecialistDashboard] Fetching LiveKit token for room: ${selectedGroupId}`);
+                const res = await apiFetch(`/api/livekit/token?room=${selectedGroupId}&username=${encodeURIComponent(user?.name || 'Mentor')}`);
                 if (res.ok) {
                     const data = await res.json();
+                    console.log("[SpecialistDashboard] LiveKit token received successfully");
                     setLkToken(data.token);
                     setLkWsUrl(data.wsUrl);
+                } else {
+                    console.error("[SpecialistDashboard] Failed to fetch LiveKit token. Status:", res.status);
                 }
             } catch (err) {
-                console.error("Failed to fetch LiveKit token", err);
+                console.error("[SpecialistDashboard] Error fetching LiveKit token:", err);
             }
         };
-        fetchLiveKitToken();
+        if (selectedGroupId) fetchLiveKitToken();
 
         // Socket Listeners
         if (socket && selectedGroupId) {
-            socket.emit('join_room', selectedGroupId);
+            socket.emit('session_join', { sessionId: selectedGroupId });
 
             const handleNewMaterial = (newMaterial: any) => {
                 setMaterials(prev => {
@@ -233,24 +278,32 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                 setParticipantCount(prev => Math.max(0, prev - 1));
             };
 
+            const handleWhiteboardToggle = (isOpen: boolean) => {
+                setIsWhiteboardOpen(isOpen);
+            };
+
             socket.on('material_new', handleNewMaterial);
             socket.on('quiz_result_update', handleQuizResultUpdate);
             socket.on('new_notification', handleNewBooking);
             socket.on('session_chat:receive', handleNewChatMessage);
+            socket.on('receive_message', handleNewChatMessage);
             socket.on('participant_joined', handleParticipantJoined);
             socket.on('participant_left', handleParticipantLeft);
+            socket.on('whiteboard:toggle', handleWhiteboardToggle);
             return () => {
                 socket.off('material_new', handleNewMaterial);
                 socket.off('quiz_result_update', handleQuizResultUpdate);
                 socket.off('new_notification', handleNewBooking);
                 socket.off('session_chat:receive', handleNewChatMessage);
+                socket.off('receive_message', handleNewChatMessage);
                 socket.off('participant_joined', handleParticipantJoined);
                 socket.off('participant_left', handleParticipantLeft);
+                socket.off('whiteboard:toggle', handleWhiteboardToggle);
             };
 
         }
 
-    }, [selectedGroupId, socket]);
+    }, [selectedGroupId, socket, user?.id]);
 
     const handleCreateQuiz = async () => {
         if (!newQuizTitle || !selectedGroupId) return;
@@ -280,6 +333,29 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
         socket.emit('quiz_start', { sessionId: selectedGroupId, quizId: quiz.id, quizDetails: quiz });
         setActiveQuiz(quiz);
         setQuizResults({}); // reset scores for this run
+    };
+
+    const handleQuickPoll = () => {
+        if (!socket || !selectedGroupId) return;
+        const quickPoll = {
+            id: `poll-${Date.now()}`,
+            title: 'Tezkor So\'rov',
+            isQuickPoll: true,
+            questions: [
+                {
+                    text: 'Hozirgi mavzu tushunarlimi?',
+                    typeof: 'multiple_choice',
+                    options: [
+                        { id: '1', text: 'Ha, tushunarli', isCorrect: true },
+                        { id: '2', text: "Yo'q, tushunarsiz", isCorrect: false }
+                    ]
+                }
+            ]
+        };
+        // Emit the quick poll to the room
+        socket.emit('quiz_start', { sessionId: selectedGroupId, quizId: quickPoll.id, quizDetails: quickPoll });
+        setActiveQuiz(quickPoll);
+        setQuizResults({}); // reset scores for this new poll
     };
 
     const handleAcceptBooking = (booking: any) => {
@@ -370,6 +446,12 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
         // Real-time: getDisplayMedia() -> publishTrack
     };
 
+    const handleToggleWhiteboard = () => {
+        const newState = !isWhiteboardOpen;
+        setIsWhiteboardOpen(newState);
+        if (socket) socket.emit('whiteboard:toggle', { sessionId, isOpen: newState });
+    };
+
     const handleToggleRecording = () => {
         setIsRecording(!isRecording);
         // Real-time: Call Egress API via Backend
@@ -381,14 +463,26 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     };
 
     const handleForceMuteStudent = (studentId: string) => {
-        if (socket) socket.emit('force_mute_student', { sessionId, studentId });
+        if (socket) socket.emit('force_mute_student', { sessionId: selectedGroupId, studentId });
         alert(`Student (ID: ${studentId}) ovozi o'chirildi.`);
     };
 
-    const handleRemoveStudent = (studentId: string) => {
-        if (!window.confirm('Talabani darsdan chiqarishni xohlaysizmi?')) return;
-        if (socket) socket.emit('kick_student', { sessionId, studentId });
-        setAttendees(prev => prev.filter(a => a.id !== studentId));
+    const handleRemoveStudent = (participantId: string) => {
+        if (socket && selectedGroupId) {
+            socket.emit('kick_student', { sessionId: selectedGroupId, participantId });
+            setAttendees(prev => prev.filter(p => p.id !== participantId));
+        }
+    };
+
+    const handleStartLesson = () => {
+        if (socket && selectedGroupId) {
+            socket.emit('lesson_start', {
+                sessionId: selectedGroupId,
+                mentorName: user?.name || 'Mentor'
+            });
+            setIsLessonStarted(true);
+            window.alert("Dars boshlandi! Guruh chatiga bildirishnoma yuborildi.");
+        }
     };
 
     const handleStartBreakout = (count: number) => {
@@ -433,12 +527,12 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 
 
 
-    if (!lkToken) {
+    if (!lkToken || !lkWsUrl) {
         return (
-            <div className="flex h-full w-full items-center justify-center bg-[#0f1117] text-white">
+            <div className="flex h-full w-full items-center justify-center bg-[rgba(var(--glass-rgb),0.8)] text-white">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm font-medium animate-pulse">LiveKit xonasiga ulanmoqda...</p>
+                    <p className="text-sm font-bold animate-pulse text-slate-400">VIDEO XONASIGA ULANMOQDA...</p>
                 </div>
             </div>
         );
@@ -477,16 +571,20 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                     newQuestions, setNewQuestions,
                     bookings, setBookings,
                     isLoadingBookings, setIsLoadingBookings,
+                    pastSessions, setPastSessions,
+                    playbackSession, setPlaybackSession,
                     chatMessages, setChatMessages,
                     isMicOn, setIsMicOn,
                     isCamOn, setIsCamOn,
                     isScreenSharing, setIsScreenSharing,
                     isRecording, setIsRecording,
+                    isWhiteboardOpen, setIsWhiteboardOpen,
                     isSettingsOpen, setIsSettingsOpen,
                     isBreakoutOpen, setIsBreakoutOpen,
                     attendees, setAttendees,
                     handleCreateQuiz,
                     handleBroadcastQuiz,
+                    handleQuickPoll,
                     handleAcceptBooking,
                     handleRejectBooking,
                     handleFileUpload,
@@ -494,6 +592,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                     handleToggleMic,
                     handleToggleCam,
                     handleToggleScreenShare,
+                    handleToggleWhiteboard,
                     handleToggleRecording,
                     handleForceMuteStudent,
                     handleRemoveStudent,
@@ -504,7 +603,8 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                     selectedGroupId, setSelectedGroupId,
                     showNewGroupPrompt, setShowNewGroupPrompt,
                     newGroupName, setNewGroupName,
-                    newGroupTime, setNewGroupTime
+                    newGroupTime, setNewGroupTime,
+                    isLessonStarted, setIsLessonStarted, handleStartLesson
                 }}
             />
             <RoomAudioRenderer />
@@ -515,6 +615,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 // Inner component to use LiveKit hooks
 function DashboardContent({
     user, sessionId, socket, onBack,
+    isLessonStarted, setIsLessonStarted, handleStartLesson,
     activeTab, setActiveTab,
     sessionNotes, setSessionNotes,
     chatInput, setChatInput,
@@ -537,11 +638,15 @@ function DashboardContent({
     isCamOn, setIsCamOn,
     isScreenSharing, setIsScreenSharing,
     isRecording, setIsRecording,
+    isWhiteboardOpen, setIsWhiteboardOpen,
     isSettingsOpen, setIsSettingsOpen,
     isBreakoutOpen, setIsBreakoutOpen,
+    pastSessions, setPastSessions,
+    playbackSession, setPlaybackSession,
     attendees, setAttendees,
     handleCreateQuiz,
     handleBroadcastQuiz,
+    handleQuickPoll,
     handleAcceptBooking,
     handleRejectBooking,
     handleFileUpload,
@@ -549,6 +654,7 @@ function DashboardContent({
     handleToggleMic,
     handleToggleCam,
     handleToggleScreenShare,
+    handleToggleWhiteboard,
     handleToggleRecording,
     handleForceMuteStudent,
     handleRemoveStudent,
@@ -595,6 +701,29 @@ function DashboardContent({
         }
     }, [isCamOn, localParticipant, connectionState]);
 
+    // Override toggle handlers to directly call LiveKit API
+    const handleLocalToggleMic = async () => {
+        if (!localParticipant) return;
+        const next = !isMicOn;
+        try {
+            await localParticipant.setMicrophoneEnabled(next);
+            setIsMicOn(next);
+        } catch (e) {
+            console.error('Mic toggle failed:', e);
+        }
+    };
+
+    const handleLocalToggleCam = async () => {
+        if (!localParticipant) return;
+        const next = !isCamOn;
+        try {
+            await localParticipant.setCameraEnabled(next);
+            setIsCamOn(next);
+        } catch (e) {
+            console.error('Camera toggle failed:', e);
+        }
+    };
+
     React.useEffect(() => {
         if (localParticipant && connectionState === ConnectionState.Connected) {
             localParticipant.setScreenShareEnabled(isScreenSharing).catch(err => {
@@ -611,10 +740,10 @@ function DashboardContent({
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#0f1117] text-slate-200 font-sans overflow-hidden">
+        <div className="flex flex-col h-full bg-[rgba(var(--glass-rgb),0.8)] text-slate-200 font-sans overflow-hidden">
 
             {/* ─── TOP NAVIGATION BAR ─── */}
-            <div className="h-14 shrink-0 flex items-center justify-between px-4 bg-[#1a1d2e] border-b border-white/5 gap-3">
+            <div className="h-14 shrink-0 flex items-center justify-between px-4 bg-[rgba(var(--glass-rgb),0.8)] border-b border-white/5 gap-3">
                 {/* Left: back + title */}
                 <div className="flex items-center gap-3">
                     {onBack && (
@@ -662,31 +791,10 @@ function DashboardContent({
                 {/* Right: actions */}
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={handleCopyInvite}
-                        className="flex items-center gap-2 px-4 h-9 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-sm font-semibold border border-indigo-500/20 transition-all"
-                        title="Copy session link to invite students"
-                    >
-                        <LinkIcon className="w-3.5 h-3.5" />
-                        Invite
-                    </button>
-
-                    <button
                         onClick={handleEndSession}
-                        className="flex items-center gap-2 px-4 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-semibold border border-white/10 transition-all"
+                        className="flex items-center gap-2 px-6 h-10 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-black shadow-lg shadow-red-500/20 transition-all active:scale-95"
                     >
                         End Session
-                        <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button className="flex items-center gap-2 px-4 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-600/30 transition-all">
-                        <VideoIcon className="w-4 h-4" />
-                        AuteCam
-                    </button>
-                    <button
-                        onClick={() => setIsSettingsOpen(true)}
-                        className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 transition-all"
-                    >
-                        <Bell className="w-4 h-4" />
                     </button>
 
                     {user?.avatar_url ? (
@@ -702,297 +810,313 @@ function DashboardContent({
             {/* ─── MAIN CONTENT ─── */}
             <div className="flex-1 flex overflow-hidden">
 
-                {/* ═══ GROUPS SIDEBAR ═══ */}
-                <div className="w-[200px] shrink-0 flex flex-col bg-[#12141c] border-r border-white/5 overflow-y-auto no-scrollbar">
-                    <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/5 bg-[#161821]">
-                        <span className="text-sm font-bold text-white tracking-wide">Guruhlar</span>
-                        <button onClick={() => setShowNewGroupPrompt(!showNewGroupPrompt)} className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all">
-                            <Plus className="w-4 h-4" />
-                        </button>
-                    </div>
 
-                    {showNewGroupPrompt && (
-                        <div className="p-3 bg-[#1a1c24] border-b border-white/5 animate-slide-down">
-                            <input type="text" placeholder="Guruh nomi..." value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="w-full bg-[#0d0f14] text-xs text-white rounded-lg px-3 py-2 border border-white/10 mb-2 outline-none" />
-                            <input type="time" value={newGroupTime} onChange={e => setNewGroupTime(e.target.value)} className="w-full bg-[#0d0f14] text-xs text-white rounded-lg px-3 py-2 border border-white/10 mb-2 outline-none" />
-                            <button onClick={() => {
-                                if (newGroupName && newGroupTime) {
-                                    setGroups([...groups, { id: Date.now().toString(), name: newGroupName, time: newGroupTime }]);
-                                    setNewGroupName('');
-                                    setNewGroupTime('');
-                                    setShowNewGroupPrompt(false);
-                                }
-                            }} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-all">
-                                Saqlash
-                            </button>
-                        </div>
-                    )}
-
-                    <div className="flex-1 p-2 space-y-1 overflow-y-auto no-scrollbar">
-                        {groups.map((g: any) => (
-                            <button
-                                key={g.id}
-                                onClick={() => setSelectedGroupId(g.id)}
-                                className={`w-full flex flex-col items-start px-3 py-2.5 rounded-xl border text-left transition-all ${selectedGroupId === g.id ? 'bg-indigo-500/10 border-indigo-500/30 shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]' : 'bg-transparent border-transparent hover:bg-white/5'}`}
-                            >
-                                <span className={`text-xs font-bold mb-1 ${selectedGroupId === g.id ? 'text-indigo-400' : 'text-slate-300'}`}>{g.name}</span>
-                                <div className="flex items-center gap-1.5 opacity-80">
-                                    <Clock className="w-3 h-3 text-slate-500" />
-                                    <span className="text-[10px] text-slate-400 font-mono font-medium">{g.time}</span>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
 
                 {/* ═══ LEFT PANEL ═══ */}
-                <div className="w-56 shrink-0 flex flex-col bg-[#161927] border-r border-white/5 overflow-y-auto no-scrollbar">
+                <div className="w-72 shrink-0 flex flex-col bg-[rgba(var(--glass-rgb),0.8)] border-r border-white/5 overflow-hidden">
 
                     {/* Manage Session */}
-                    <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-                        <span className="text-sm font-bold text-white">Manage Session</span>
-                        <button className="text-slate-500 hover:text-white"><MoreHorizontal className="w-4 h-4" /></button>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex border-b border-white/5 mx-2 mb-3">
-                        {(['attendees', 'materials', 'chat'] as const).map(tab => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`flex-1 py-2 text-[11px] font-semibold capitalize transition-colors ${activeTab === tab ? 'text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                {tab}
+                    <div className="px-4 pt-4 pb-2 flex items-center justify-between border-b border-white/5">
+                        <span className="text-sm font-bold text-white uppercase tracking-widest opacity-80">Manage Session</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setIsSettingsOpen(true)} className="text-slate-500 hover:text-white transition-colors" title="Settings">
+                                <Settings className="w-4 h-4" />
                             </button>
-                        ))}
+                        </div>
                     </div>
 
-                    {/* Booking Requests (Pending Escrow) */}
-                    <div className="px-3 mb-4">
-                        <div className="flex items-center justify-between mb-2 px-1">
-                            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Booking Requests</span>
-                            {isLoadingBookings && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />}
+
+                    {/* Scrollable Content Area */}
+                    <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+                        {/* Tabs for extra tools */}
+                        <div className="flex border-b border-white/5 mx-2 mb-3 mt-2 shrink-0">
+                            {(['attendees', 'materials', 'history'] as const).map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === tab ? 'text-white border-b-2 border-blue-500 bg-white/5' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
                         </div>
-                        <div className="space-y-2">
-                            {bookings.length === 0 ? (
-                                <div className="text-[10px] text-slate-500 italic px-1">No pending bookings</div>
-                            ) : (
-                                bookings.map((booking: any, idx: number) => (
-                                    <div key={idx} className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10 group hover:bg-emerald-500/10 transition-all">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-7 h-7 rounded-full bg-slate-700 overflow-hidden shrink-0">
-                                                {booking.student_avatar ? (
-                                                    <img src={booking.student_avatar} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-indigo-500 text-[10px] font-bold text-white">
-                                                        {booking.student_name?.[0]}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-[11px] font-bold text-white truncate">{booking.student_name}</span>
-                                                <span className="text-[9px] text-emerald-400 font-bold">{booking.amount} MALI Locked</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
-                                            <button
-                                                onClick={() => handleAcceptBooking(booking)}
-                                                className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-black rounded-lg transition-colors"
-                                            >
-                                                ACCEPT
-                                            </button>
-                                            <button onClick={() => handleRejectBooking(booking.id)} className="flex-1 py-1 bg-white/5 hover:bg-white/10 text-slate-400 text-[9px] font-bold rounded-lg transition-colors">LATER</button>
-                                        </div>
+
+
+                        {/* ATTENDEES tab */}
+                        {activeTab === 'attendees' && (
+                            <div className="flex flex-col flex-1 pb-4 animate-fade-in">
+                                <div className="mx-3 mb-2 flex items-center justify-between px-1 border-b border-white/5 pb-2">
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <span>Active Participants ({attendees.length})</span>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                                </div>
 
-                    {/* ATTENDEES tab */}
-                    {activeTab === 'attendees' && (
-
-                        <div className="flex flex-col flex-1">
-                            {/* Mentor Card */}
-                            <div className="mx-3 p-3 rounded-xl bg-white/5 mb-3 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    {user?.avatar_url ? (
-                                        <img src={user.avatar_url} alt="U" className="w-8 h-8 rounded-full object-cover" />
+                                {/* Attendees List */}
+                                <div className="px-3 space-y-2 overflow-y-auto no-scrollbar flex-1 min-h-0">
+                                    {attendees.length === 0 ? (
+                                        <div className="py-12 flex flex-col items-center justify-center gap-3 opacity-20 border-2 border-dashed border-white/5 rounded-2xl mx-1">
+                                            <Users className="w-8 h-8" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-center px-4">Talabalar darsga kirishini kutilmoqda...</span>
+                                        </div>
                                     ) : (
-                                        <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
-                                            {user?.name?.[0] || 'T'}
-                                        </div>
+                                        attendees.map((student: any, i: number) => (
+                                            <div key={student.id || i} className="flex items-center justify-between py-2.5 px-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all group/item shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="relative">
+                                                        <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden border border-white/10 shadow-inner">
+                                                            <img
+                                                                src={student.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}&backgroundColor=1e293b`}
+                                                                alt={student.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#161927] shadow-sm" />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-[11px] font-bold text-white truncate">{student.name}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                                                            <span className="text-[8px] text-green-400/70 font-bold uppercase tracking-widest">Darsda</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-all translate-x-2 group-hover/item:translate-x-0">
+                                                    <button
+                                                        onClick={() => handleForceMuteStudent(student.id)}
+                                                        title="Ovozni o'chirish"
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                                                    >
+                                                        <MicOff className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRemoveStudent(student.id)}
+                                                        title="Darsdan chetlatish"
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 transition-colors"
+                                                    >
+                                                        <LogOut className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
                                     )}
-                                    <div>
-                                        <div className="text-xs font-bold text-white">{user?.name || 'Tessa Walker'}</div>
-                                        <div className="flex items-center gap-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                            <span className="text-[10px] text-green-400 font-semibold">Mentor</span>
-                                        </div>
-                                    </div>
                                 </div>
-                                <button className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-slate-400 hover:text-white"><UserPlus className="w-3 h-3" /></button>
-                            </div>
 
-                            {/* All Participants */}
-                            <div className="mx-3 mb-2 flex items-center justify-between px-1">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                                    <span>—</span>
-                                    <span>All Participants ({participantCount})</span>
-                                </div>
-                                <button className="w-5 h-5 rounded bg-white/10 flex items-center justify-center text-slate-400 hover:text-white"><UserPlus className="w-3 h-3" /></button>
-                            </div>
-
-                            {/* Active Quiz Visualizer if running */}
-                            {activeQuiz ? (
-                                <>
-                                    <div className="mx-3 mb-1 p-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-lg bg-red-500 animate-pulse flex items-center justify-center">
-                                                <ClipboardList className="w-3.5 h-3.5 text-white" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-white">LIVE: {activeQuiz.title}</span>
-                                                <span className="text-[10px] text-blue-300">{Object.keys(quizResults).length} replies received</span>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => setActiveQuiz(null)} className="px-2 py-1 bg-white/10 text-[10px] rounded hover:bg-white/20">STOP</button>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    {quizzes.length > 0 && quizzes.map((q: any, i: number) => (
-                                        <div key={i} className="mx-3 mb-1 p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between group">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-white">{q.title}</span>
-                                                <span className="text-[10px] text-slate-400">{q.questions?.length || 0} Questions</span>
-                                            </div>
-                                            <button
-                                                onClick={() => handleBroadcastQuiz(q)}
-                                                className="px-2 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                START LIVE
-                                            </button>
-                                        </div>
-                                    ))}
+                                {/* Quick Controls */}
+                                <div className="mt-2 px-3 space-y-2 border-t border-white/5 pt-3">
                                     <button
                                         onClick={() => setIsBreakoutOpen(true)}
-                                        className="mx-3 mb-1 py-2 text-[10px] font-black uppercase tracking-tighter text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-all"
+                                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/5 border border-purple-500/10 rounded-xl hover:bg-purple-500/10 transition-all flex items-center justify-center gap-2"
                                     >
-                                        💎 Breakout Groups
+                                        <LayoutGrid className="w-3.5 h-3.5" />
+                                        Breakout Rooms
                                     </button>
-                                    <button onClick={() => setIsCreatingQuiz(true)} className="mx-3 mb-3 mt-1 py-1.5 text-xs font-semibold text-blue-400 border border-dashed border-blue-500/30 rounded-lg hover:bg-blue-500/10 text-center transition-colors">
-                                        + Create New Quiz
-                                    </button>
-                                </>
-                            )}
-
-                            {/* Participant List */}
-                            <div className="mx-3 mb-2">
-                                {attendees.length > 0 && attendees.map((student: any, i: number) => (
-                                    <div key={i} className="flex items-center justify-between py-1.5 px-1 hover:bg-white/5 rounded-lg transition-colors group/item relative">
-                                        <div className="flex items-center gap-2">
-                                            <div className="relative">
-                                                <div className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden">
-                                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}&backgroundColor=1e293b`} alt={student.name} className="w-full h-full" />
-                                                </div>
-                                                <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#161927]" />
-                                            </div>
-                                            <span className="text-xs font-medium text-white">{student.name}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                            <button onClick={() => handleForceMuteStudent(student.id)} title="Mute Student" className="w-5 h-5 flex items-center justify-center rounded bg-red-500/10 text-red-500 hover:bg-red-500/20"><Mic className="w-2.5 h-2.5" /></button>
-                                            <button onClick={() => handleRemoveStudent(student.id)} title="Remove Student" className="w-5 h-5 flex items-center justify-center rounded bg-slate-500/10 text-slate-500 hover:text-white"><Plus className="w-2.5 h-2.5 rotate-45" /></button>
-                                        </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setIsCreatingQuiz(true)} className="flex-1 py-1.5 text-[10px] font-black uppercase text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/5 transition-all text-center">
+                                            + Quiz
+                                        </button>
+                                        <button onClick={handleQuickPoll} className="flex-1 py-1.5 text-[10px] font-black uppercase text-amber-400 border border-amber-500/20 rounded-xl hover:bg-amber-500/5 transition-all text-center">
+                                            ⚡ Poll
+                                        </button>
                                     </div>
-                                ))}
-                                <div className="flex items-center gap-1 px-1 mt-1">
-                                    <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-slate-500 text-[10px] font-bold">+{participantCount}</div>
                                 </div>
                             </div>
-
-                        </div>
-                    )}
+                        )}
 
 
-                    {/* MATERIALS tab */}
-                    {activeTab === 'materials' && (
-                        <div className="flex flex-col gap-2 px-3 overflow-y-auto no-scrollbar pb-4 block">
-                            {materials.length === 0 ? (
-                                <div className="text-center text-xs text-slate-500 py-4">No materials uploaded yet</div>
-                            ) : (
-                                materials.map((mat: any) => {
-                                    const isVideo = mat.file_type?.includes('video');
-                                    return (
-                                        <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${mat.file_url}`} target="_blank" rel="noreferrer" key={mat.id} className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-xs font-semibold text-slate-300">
+                        {/* MATERIALS tab */}
+                        {activeTab === 'materials' && (
+                            <div className="flex flex-col flex-1 pb-4 animate-fade-in overflow-hidden">
+                                {/* Upload Action */}
+                                <div className="px-3 mb-3">
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className="w-full py-3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                                    >
+                                        {isUploading ? (
+                                            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <Upload className="w-4 h-4" />
+                                        )}
+                                        {isUploading ? "Yuklanmoqda..." : "Material Yuklash"}
+                                    </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                    />
+                                    <p className="mt-2 text-[9px] text-slate-500 text-center font-medium italic">
+                                        Yuklangan materiallar avtomatik guruh chatiga ulashiladi.
+                                    </p>
+                                </div>
 
-                                            {isVideo ? (
-                                                <div className="w-4 h-4 rounded bg-blue-500 flex items-center justify-center shrink-0"><VideoIcon className="w-2.5 h-2.5 text-white" /></div>
-                                            ) : (
-                                                <FileText className="w-3.5 h-3.5 shrink-0" />
-                                            )}
-                                            <span className="truncate">{mat.title}</span>
-                                        </a>
-                                    );
-                                })
-                            )}
-                        </div>
-                    )}
+                                <div className="flex-1 overflow-y-auto no-scrollbar px-3 space-y-2">
+                                    {materials.length === 0 ? (
+                                        <div className="py-8 flex flex-col items-center justify-center gap-3 opacity-20 border-2 border-dashed border-white/5 rounded-2xl">
+                                            <FileText className="w-8 h-8" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Materiallar yo'q</span>
+                                        </div>
+                                    ) : (
+                                        materials.map((mat: any) => {
+                                            const isVideo = mat.file_type?.includes('video');
+                                            const isImage = mat.file_type?.includes('image');
+                                            const isPdf = mat.file_type?.includes('pdf');
 
-                    {/* CHAT tab */}
-                    {activeTab === 'chat' && (
-                        <div className="flex flex-col flex-1 pb-2">
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
-                                {chatMessages.length === 0 ? (
-                                    <div className="text-white/30 text-xs text-center mt-4">Xabarlar yo'q</div>
+                                            return (
+                                                <div key={mat.id} className="group relative bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all p-3 shadow-sm">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-inner ${isVideo ? 'bg-blue-500/20 text-blue-400' :
+                                                            isImage ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                isPdf ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'
+                                                            }`}>
+                                                            {isVideo ? <VideoIcon className="w-5 h-5" /> :
+                                                                isImage ? <Camera className="w-5 h-5" /> :
+                                                                    <FileText className="w-5 h-5" />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-[11px] font-bold text-white truncate mb-0.5">{mat.title}</div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[9px] text-slate-500 font-bold uppercase">{mat.file_type?.split('/')[1] || 'FILE'}</span>
+                                                                <span className="w-1 h-1 rounded-full bg-white/10" />
+                                                                <div className="flex items-center gap-1 text-blue-400">
+                                                                    <Check className="w-2.5 h-2.5" />
+                                                                    <span className="text-[8px] font-black uppercase tracking-tighter">Shared in Chat</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <a
+                                                            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${mat.file_url}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
+                                                        >
+                                                            <Maximize2 className="w-3.5 h-3.5" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+
+                        {/* HISTORY tab */}
+                        {activeTab === 'history' && (
+                            <div className="flex-1 p-3 space-y-2 overflow-y-auto no-scrollbar">
+                                <div className="text-xs font-bold text-slate-300 mb-2 px-1">Tugallangan Darslar</div>
+                                {pastSessions.length === 0 ? (
+                                    <div className="text-[10px] text-slate-500 italic px-1">Hech qanday dars tarixi yo'q</div>
                                 ) : (
-                                    chatMessages.map((m: any, i: number) => (
-                                        <div key={m.id || i} className="flex gap-2.5 text-sm animate-slide-up">
-                                            <img
-                                                src={m.avatar || m.sender_avatar ? (m.avatar || m.sender_avatar).includes('http') ? (m.avatar || m.sender_avatar) : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${(m.avatar || m.sender_avatar).startsWith('/') ? '' : '/'}${m.avatar || m.sender_avatar}` : "https://i.pravatar.cc/150?img=5"}
-                                                alt="avatar"
-                                                className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-white/10"
-                                                onError={(e: any) => { e.target.src = "https://i.pravatar.cc/150?img=5" }}
-                                            />
-                                            <div>
-                                                <p className="leading-snug bg-white/5 px-3 py-2 rounded-xl rounded-tl-sm border border-white/5">
-                                                    <span className="font-bold text-white/80 mr-1.5">{m.sender || m.sender_name}:</span>
-                                                    <span className="text-white/90 break-words">{m.text || m.message}</span>
-                                                </p>
+                                    pastSessions.map((session: any) => (
+                                        <div key={session.id} className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all">
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="flex-1 min-w-0 pr-2">
+                                                    <h4 className="text-xs font-bold text-white truncate">{session.title || "Dars yozuvi"}</h4>
+                                                    <p className="text-[9px] text-slate-400 mt-0.5">{new Date(session.created_at).toLocaleDateString()}</p>
+                                                </div>
                                             </div>
+                                            {session.recording_url && (
+                                                <button
+                                                    onClick={() => setPlaybackSession(session)}
+                                                    className="w-full py-1.5 bg-blue-600/20 hover:bg-blue-600 border border-blue-500/30 text-blue-400 hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                                                >
+                                                    <VideoIcon className="w-3 h-3" />
+                                                    Yozuvni ko'rish
+                                                </button>
+                                            )}
+                                            {!session.recording_url && (
+                                                <div className="text-[9px] text-slate-500 italic flex items-center gap-1">
+                                                    <MonitorOff className="w-3 h-3" /> Yozib olinmagan
+                                                </div>
+                                            )}
                                         </div>
                                     ))
                                 )}
                             </div>
-                            <div className="p-3 bg-[#11131a] border-t border-white/5 mx-2 rounded-xl">
-                                <form className="relative" onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
-                                    <input
-                                        type="text"
-                                        placeholder="Xabar yozing..."
-                                        value={chatInput}
-                                        onChange={e => setChatInput(e.target.value)}
-                                        className="w-full bg-[#1c1f2b] rounded-xl py-2.5 px-4 pr-10 text-sm text-white placeholder-white/40 border border-white/5 outline-none focus:ring-1 ring-blue-500/50 transition-all shadow-inner"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSendMessage()}
-                                        disabled={!chatInput.trim()}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white/40 hover:text-blue-400 disabled:opacity-50 disabled:hover:text-white/40 bg-transparent outline-none transition-colors"
-                                    >
-                                        <Send className="w-4 h-4" />
-                                    </button>
-                                </form>
+                        )}
+                    </div>
+
+                    {/* COMPACT PERMANENT CHAT */}
+                    <div className="h-[310px] shrink-0 flex flex-col border-t border-white/10 bg-black/40">
+                        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/5 bg-white/5">
+                            <div className="flex items-center gap-2">
+                                <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">In-Meeting Chat</span>
                             </div>
+                            <span className="text-[9px] font-bold text-slate-500 uppercase">{chatMessages.length} Messages</span>
                         </div>
-                    )}
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+                            {chatMessages.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center opacity-10 gap-2">
+                                    <MessageSquare className="w-10 h-10" />
+                                    <span className="text-xs uppercase font-black tracking-tighter">Quiet session...</span>
+                                </div>
+                            ) : (
+                                chatMessages.map((m: any, i: number) => {
+                                    const senderName = m.sender_name || m.sender || "Foydalanuvchi";
+                                    const senderAvatar = m.sender_avatar || m.avatar;
+
+                                    return (
+                                        <div key={m.id || i} className="flex gap-2.5 animate-slide-up group/msg">
+                                            <div className="w-6 h-6 rounded-full overflow-hidden shrink-0 mt-0.5 border border-white/5">
+                                                <img
+                                                    src={senderAvatar ? (senderAvatar.includes('http') ? senderAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${senderAvatar.startsWith('/') ? '' : '/'}${senderAvatar}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${senderName}&backgroundColor=1e293b`}
+                                                    alt="avatar"
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e: any) => { e.target.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=User&backgroundColor=1e293b" }}
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                    <span className="text-[10px] font-black text-white/50 truncate uppercase tracking-tighter group-hover/msg:text-blue-400 transition-colors">{senderName}</span>
+                                                </div>
+                                                <p className="text-[11px] text-white/90 leading-snug break-words bg-white/5 px-2.5 py-1.5 rounded-xl rounded-tl-none border border-white/5 inline-block max-w-full">
+                                                    {m.text || m.message || m.content}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Chat Input */}
+                        <div className="p-3 bg-black/40 border-t border-white/5">
+                            <form className="relative flex gap-2" onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
+                                <input
+                                    type="text"
+                                    placeholder="Type a message..."
+                                    value={chatInput}
+                                    onChange={e => setChatInput(e.target.value)}
+                                    className="flex-1 bg-white/5 rounded-xl py-2 px-3.5 text-[11px] text-white placeholder-white/20 border border-white/10 outline-none focus:border-blue-500/50 transition-all font-medium"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!chatInput.trim()}
+                                    className="p-2 aspect-square rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-30 transition-all shadow-lg shadow-blue-500/20 active:scale-90"
+                                >
+                                    <Send className="w-3.5 h-3.5" />
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ═══ CENTER PANEL (VIDEO) ═══ */}
                 <div className="flex-1 flex flex-col relative overflow-hidden bg-[#0d0f1a]">
 
                     {/* Shared Video Frame Component */}
-                    <LiveVideoFrame isMentor={true} />
-
+                    <LiveVideoFrame
+                        isMentor={true}
+                        isWhiteboardOpen={isWhiteboardOpen}
+                        socket={socket}
+                        sessionId={sessionId}
+                        onCloseWhiteboard={handleToggleWhiteboard}
+                    />
 
                     {/* Bottom control bar (Mirrored from User's preferred design) */}
                     <div className="h-[72px] shrink-0 flex items-center justify-between px-6 bg-[#1c1f2b] border-t border-white/5 relative z-10 w-full">
@@ -1006,7 +1130,7 @@ function DashboardContent({
                         <div className="flex items-center gap-3">
                             {/* Microphone Button */}
                             <button
-                                onClick={handleToggleMic}
+                                onClick={handleLocalToggleMic}
                                 className={`flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm shadow-sm ${isMicOn ? 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5' : 'bg-red-500 text-white hover:bg-red-600'}`}
                             >
                                 {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
@@ -1016,8 +1140,8 @@ function DashboardContent({
 
                             {/* Camera Button */}
                             <button
-                                onClick={handleToggleCam}
-                                className={`flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm shadow-sm ${isCamOn ? 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5' : 'bg-[#2a2d3e] text-white/50 hover:bg-[#32364a] border border-white/5'}`}
+                                onClick={handleLocalToggleCam}
+                                className={`flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm shadow-sm ${isCamOn ? 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5' : 'bg-red-500/80 text-white hover:bg-red-600 border border-red-500/30'}`}
                             >
                                 {isCamOn ? <VideoIcon className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
                                 <span>Camera</span>
@@ -1029,27 +1153,19 @@ function DashboardContent({
                                 onClick={handleToggleScreenShare}
                                 className={`flex items-center gap-2 h-11 px-5 rounded-xl transition-all font-bold text-sm shadow-md ${isScreenSharing ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5'}`}
                             >
-                                {isScreenSharing ? <MonitorUp className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-                                <span>{isScreenSharing ? 'Stop screen share' : 'Share Screen'}</span>
+                                <Monitor className="w-4 h-4" />
+                                <span className="hidden sm:inline">{isScreenSharing ? 'Stop' : 'Share'}</span>
                             </button>
 
-                            {/* Chat Button (Optional) */}
+                            {/* Whiteboard Button */}
                             <button
-                                onClick={() => setActiveTab('chat')}
-                                className="flex items-center gap-2 h-11 px-4 rounded-xl transition-all font-semibold text-sm bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5"
+                                onClick={handleToggleWhiteboard}
+                                className={`flex items-center gap-2 h-11 px-5 rounded-xl transition-all font-bold text-sm shadow-md ${isWhiteboardOpen ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-[#2a2d3e] text-white/90 hover:bg-[#32364a] border border-white/5'}`}
                             >
-                                <MessageSquare className="w-4 h-4" />
-                                <span>Chat</span>
+                                <PenTool className="w-4 h-4" />
+                                <span className="hidden sm:inline">Whiteboard</span>
                             </button>
 
-                            {/* Leave Button */}
-                            <button
-                                onClick={() => window.location.href = '/dashboard/specialist'}
-                                className="flex items-center gap-2 h-11 px-5 rounded-xl transition-all font-bold text-sm bg-transparent border border-red-500 text-red-500 hover:bg-red-500/10"
-                            >
-                                <LogOut className="w-4 h-4" />
-                                <span>Leave</span>
-                            </button>
                         </div>
 
                         {/* Right Tools (Recording, Volume, Layout) */}
@@ -1195,18 +1311,16 @@ function DashboardContent({
                     </div>
 
                     {/* End Session bottom bar */}
-                    <div className="mx-3 mb-4 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1 text-slate-500 cursor-pointer hover:text-slate-300 transition-colors">
-                            <Users className="w-3.5 h-3.5" />
-                        </div>
+                    <div className="mx-3 mb-4 flex items-center justify-end gap-2">
                         <button
-                            onClick={handleEndSession}
-                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold shadow-lg shadow-red-600/20 transition-all"
+                            onClick={handleStartLesson}
+                            disabled={isLessonStarted}
+                            className={`flex-[2] flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-bold shadow-lg transition-all ${isLessonStarted ? 'bg-blue-600/40 cursor-not-allowed border border-blue-500/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 active:scale-95'}`}
                         >
-                            End
+                            {isLessonStarted ? 'Boshlandi' : 'Boshlash'}
                         </button>
 
-                        <button className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 border border-white/10">
+                        <button className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white/10 border border-white/10">
                             <ChevronDown className="w-4 h-4" />
                         </button>
                     </div>

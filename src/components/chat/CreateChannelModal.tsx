@@ -39,11 +39,11 @@ export default function CreateChannelModal({ onClose, onCreateChannel }: CreateC
             onClick={onClose}
         >
             <GlassCard
-                className="w-full max-w-md !p-0 animate-scale-up !bg-black/20 !backdrop-blur-3xl border border-white/10 flex flex-col max-h-[90vh] shadow-2xl overflow-hidden !rounded-[28px]"
+                className="w-full max-w-md !p-0 animate-scale-up border border-white/10 flex flex-col max-h-[90vh] shadow-2xl overflow-hidden !rounded-[28px]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/10">
                     <div className="flex items-center gap-3">
                         {step === 2 && (
                             <button onClick={() => setStep(1)} className="text-white/50 hover:text-white transition-colors">
@@ -153,7 +153,7 @@ export default function CreateChannelModal({ onClose, onCreateChannel }: CreateC
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end gap-3 px-6">
+                <div className="p-4 border-t border-white/10 bg-white/10 flex justify-end gap-3 px-6">
                     <button
                         onClick={onClose}
                         className="px-6 py-2 text-blue-400 hover:text-blue-300 transition-colors font-medium"

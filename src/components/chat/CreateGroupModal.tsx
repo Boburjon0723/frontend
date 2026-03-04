@@ -52,9 +52,9 @@ export default function CreateGroupModal({ onClose, onCreateGroup }: CreateGroup
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <GlassCard className="w-full max-w-md !p-0 animate-scale-up !bg-black/20 !backdrop-blur-3xl border border-white/10 flex flex-col max-h-[85vh] overflow-hidden !rounded-[28px] shadow-2xl">
+            <GlassCard className="w-full max-w-md !p-0 animate-scale-up border border-white/10 flex flex-col max-h-[85vh] overflow-hidden !rounded-[28px] shadow-2xl">
                 {/* Header */}
-                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5 backdrop-blur-md">
+                <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/10 backdrop-blur-md">
                     <h2 className="text-[19px] font-bold text-white">
                         {step === 1 ? "Ishtirokchilarni tanlang" : "Guruh yaratish"}
                     </h2>

@@ -147,7 +147,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md" onClick={onClose}>
             <GlassCard
-                className="w-full max-w-md !p-0 overflow-hidden relative shadow-2xl animate-scale-in z-10 !bg-[#353940]/90 !backdrop-blur-3xl border border-white/10 flex flex-col max-h-[90vh] rounded-[30px]"
+                className="w-full max-w-md !p-0 overflow-hidden relative shadow-2xl animate-scale-in z-10 border border-white/10 flex flex-col max-h-[90vh] rounded-[30px]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -194,14 +194,14 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                     <div className="space-y-4">
                         <div className="space-y-1">
                             <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Display Name</label>
-                            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="Your Name" />
+                            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="Your Name" />
                         </div>
                         <div className="space-y-1">
                             <div className="flex justify-between">
                                 <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Username</label>
                                 <span className="text-white/30 text-xs">@{username}</span>
                             </div>
-                            <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="username" />
+                            <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="username" />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Birthday</label>
@@ -209,12 +209,12 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                                 type="date"
                                 value={birthday}
                                 onChange={(e) => setBirthday(e.target.value)}
-                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors"
                             />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Bio</label>
-                            <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors resize-none" placeholder="Tell us about yourself..." />
+                            <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors resize-none" placeholder="Tell us about yourself..." />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
@@ -222,7 +222,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                                 <select
                                     value={wiloyat}
                                     onChange={(e) => setWiloyat(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors"
                                 >
                                     <option value="">Tanlang</option>
                                     <option value="Toshkent">Toshkent</option>
@@ -242,7 +242,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Tuman / Shahar</label>
-                                <input value={tuman} onChange={(e) => setTuman(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="Tuman nomi" />
+                                <input value={tuman} onChange={(e) => setTuman(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="Tuman nomi" />
                             </div>
                         </div>
                     </div>
@@ -269,33 +269,33 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Profession</label>
-                                    <input value={profession} onChange={(e) => setProfession(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. Lawyer" />
+                                    <input value={profession} onChange={(e) => setProfession(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. Lawyer" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Experience (Yrs)</label>
-                                    <input type="number" value={experience} onChange={(e) => setExperience(parseInt(e.target.value) || 0)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" />
+                                    <input type="number" value={experience} onChange={(e) => setExperience(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" />
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Specialization</label>
-                                <input value={specialization} onChange={(e) => setSpecialization(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. Criminal Law, Family Law (comma separated)" />
+                                <input value={specialization} onChange={(e) => setSpecialization(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. Criminal Law, Family Law (comma separated)" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Price (MALI/hr)</label>
-                                    <input type="number" value={price} onChange={(e) => setPrice(parseInt(e.target.value) || 0)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" />
+                                    <input type="number" value={price} onChange={(e) => setPrice(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Working Hours</label>
-                                    <input value={hours} onChange={(e) => setHours(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. 9AM - 6PM" />
+                                    <input value={hours} onChange={(e) => setHours(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. 9AM - 6PM" />
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Languages</label>
-                                <input value={languages} onChange={(e) => setLanguages(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. English, Uzbek, Russian" />
+                                <input value={languages} onChange={(e) => setLanguages(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. English, Uzbek, Russian" />
                             </div>
                         </div>
                     )}

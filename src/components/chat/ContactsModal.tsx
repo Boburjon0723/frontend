@@ -28,7 +28,7 @@ export default function ContactsModal({ contacts, onClose, onStartChat, onAddCon
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 bg-white/5 backdrop-blur-md">
+                <div className="flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-md">
                     <div className="flex items-center gap-4 text-white">
                         <h2 className="text-[19px] font-bold">Контакты</h2>
                     </div>
@@ -117,7 +117,7 @@ export default function ContactsModal({ contacts, onClose, onStartChat, onAddCon
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 bg-white/5 flex justify-between items-center border-t border-white/5">
+                <div className="px-4 py-3 bg-white/10 flex justify-between items-center border-t border-white/5">
                     <button
                         onClick={onAddContact}
                         className="flex items-center gap-2 px-4 py-2 text-blue-400 font-bold text-[14px] uppercase hover:bg-blue-400/10 rounded-xl transition-colors"

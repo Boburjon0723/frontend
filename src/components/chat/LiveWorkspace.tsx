@@ -5,6 +5,8 @@ import { GlassCard } from '../ui/GlassCard';
 import { apiFetch } from '@/lib/api';
 import { useSocket } from '../../context/SocketContext';
 import LiveKitRoomWrapper from './LiveKitRoomWrapper';
+import { LiveWhiteboard } from '../dashboard/shared/LiveWhiteboard';
+import ReviewModal from './ReviewModal';
 import {
     X,
     Mic,
@@ -63,6 +65,8 @@ export default function LiveWorkspace({
     const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [isRecording, setIsRecording] = useState(false);
+    const [showWhiteboard, setShowWhiteboard] = useState(false);
+    const [showReviewModal, setShowReviewModal] = useState(false);
     const chatScrollRef = useRef<HTMLDivElement>(null);
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -136,6 +140,10 @@ export default function LiveWorkspace({
     // Socket Event Listeners for Chat & Breakout
     useEffect(() => {
         if (!socket) return;
+
+        // Join session room
+        socket.emit('session_join', { sessionId: chat?.id || 'demo-room' });
+
         const handleReceive = (msg: any) => {
             setChatMessages(prev => [...prev, msg]);
             setTimeout(() => {
@@ -252,6 +260,36 @@ export default function LiveWorkspace({
 
     return (
         <div className="absolute inset-0 z-[100] flex flex-col bg-[#0a0a0c] text-white">
+            {showWhiteboard && (
+                <div className="fixed inset-0 z-[200] p-10 bg-black/80 backdrop-blur-2xl animate-fade-in flex items-center justify-center">
+                    <div className="w-full h-full max-w-6xl max-h-[85vh] relative flex flex-col">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                                Interaktiv Doska (Whiteboard)
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowWhiteboard(false);
+                                    if (socket) socket.emit('whiteboard:toggle', { sessionId: chat?.id || 'demo-session', isOpen: false });
+                                }}
+                                className="p-2 bg-white/5 hover:bg-red-500 text-white rounded-xl transition-all shadow-xl"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <LiveWhiteboard
+                            socket={socket}
+                            sessionId={chat?.id || 'demo-session'}
+                            isMentor={true}
+                            onClose={() => {
+                                setShowWhiteboard(false);
+                                if (socket) socket.emit('whiteboard:toggle', { sessionId: chat?.id || 'demo-session', isOpen: false });
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
             {/* Main Area */}
             <div className="flex-1 flex overflow-hidden relative">
 
@@ -388,17 +426,30 @@ export default function LiveWorkspace({
                                                 )}
                                             </div>
 
+                                            {/* Always visible tools in Education layer */}
+                                            <button
+                                                onClick={() => {
+                                                    const newState = !showWhiteboard;
+                                                    setShowWhiteboard(newState);
+                                                    if (socket) socket.emit('whiteboard:toggle', { sessionId: chat?.id || 'demo-session', isOpen: newState });
+                                                }}
+                                                className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all border mb-4 flex items-center justify-center gap-2 ${showWhiteboard ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20'}`}
+                                            >
+                                                <PenTool className="w-4 h-4" />
+                                                {showWhiteboard ? 'Doskani Yopish' : 'Interaktiv Doska (Whiteboard)'}
+                                            </button>
+
                                             {isBreakoutActive ? (
                                                 <div className="space-y-3">
-                                                    <div className="flex items-center justify-between mt-2">
-                                                        <span className="text-xs text-white/50">Sizningxonangiz:</span>
-                                                        <span className="text-xs font-bold text-blue-400 truncate max-w-[120px]">{currentRoomId}</span>
+                                                    <div className="flex items-center justify-between mt-1">
+                                                        <span className="text-[10px] text-white/50 uppercase font-black tracking-widest">Sizning xonangiz:</span>
+                                                        <span className="text-[10px] font-bold text-blue-400 truncate max-w-[120px]">{currentRoomId}</span>
                                                     </div>
 
                                                     {Object.entries(breakoutRooms).map(([roomId, users], idx) => (
                                                         <div key={roomId} className="p-3 bg-white/5 rounded-xl border border-white/5 flex flex-col gap-2">
                                                             <div className="flex items-center justify-between">
-                                                                <span className="text-xs font-bold text-emerald-300">Guruh {idx + 1}</span>
+                                                                <span className="text-xs font-bold text-emerald-300 uppercase tracking-tighter">Guruh {idx + 1}</span>
                                                                 <span className="text-[10px] text-white/40">{users.length} talaba</span>
                                                             </div>
                                                             {currentRoomId !== roomId ? (
@@ -414,14 +465,14 @@ export default function LiveWorkspace({
                                                     ))}
 
                                                     {isMentor && (
-                                                        <button onClick={endBreakout} className="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/50 rounded-xl text-xs font-bold transition-all mt-4">
+                                                        <button onClick={endBreakout} className="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/50 rounded-xl text-xs font-bold transition-all mt-2">
                                                             Barchani Qaytarish (End)
                                                         </button>
                                                     )}
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3 p-4 bg-white/5 border border-white/10 rounded-xl">
-                                                    <p className="text-[10px] text-white/50 text-center leading-relaxed">
+                                                    <p className="text-[10px] text-white/50 text-center leading-relaxed font-medium">
                                                         Talabalarni avtomatik tarzda kichik guruhlarga (Breakout Rooms) bo'lish.
                                                     </p>
                                                     <div className="flex items-center gap-2">
@@ -430,11 +481,11 @@ export default function LiveWorkspace({
                                                             min="2" max="10"
                                                             value={numGroups}
                                                             onChange={(e) => setNumGroups(parseInt(e.target.value) || 2)}
-                                                            className="flex-1 bg-black/50 border border-white/10 rounded-lg p-2 text-sm text-center outline-none focus:border-emerald-500"
+                                                            className="flex-1 bg-black/50 border border-white/10 rounded-lg p-2 text-sm text-center outline-none focus:border-emerald-500 text-white font-bold"
                                                         />
-                                                        <span className="text-xs text-white/40 font-bold">ta guruh</span>
+                                                        <span className="text-[10px] text-white/40 font-black uppercase tracking-widest">ta guruh</span>
                                                     </div>
-                                                    <button onClick={startBreakout} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all">
+                                                    <button onClick={startBreakout} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black tracking-widest transition-all shadow-lg shadow-emerald-600/20 active:scale-95 uppercase">
                                                         Bo'lishni Boshlash
                                                     </button>
                                                 </div>
@@ -593,7 +644,13 @@ export default function LiveWorkspace({
 
                     {/* End Call (Red Button) */}
                     <button
-                        onClick={onEndCall}
+                        onClick={() => {
+                            if (!isMentor) {
+                                setShowReviewModal(true);
+                            } else {
+                                onEndCall();
+                            }
+                        }}
                         title="End Session"
                         className="w-14 h-14 rounded-full bg-red-600 outline outline-4 outline-red-600/30 text-white flex items-center justify-center shadow-xl shadow-red-600/20 hover:scale-105 active:scale-95 transition-all mx-2"
                     >
@@ -628,6 +685,21 @@ export default function LiveWorkspace({
                     </button>
                 </div>
             </div>
-        </div>
+
+            {showReviewModal && (
+                <ReviewModal
+                    expertId={chat?.otherUser?.id || chat?.userId || ''}
+                    expertName={chat?.otherUser?.name || 'Mutaxassis'}
+                    onClose={() => {
+                        setShowReviewModal(false);
+                        onEndCall();
+                    }}
+                    onSuccess={() => {
+                        setShowReviewModal(false);
+                        onEndCall();
+                    }}
+                />
+            )}
+        </div >
     );
 }

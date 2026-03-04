@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Clock, DollarSign, Globe, Briefcase, GraduationCap, Building2, MapPin, X, Check, MessageSquare, Video, ShieldCheck, Search, Filter, Monitor, Map, Plus, ChevronRight, Gavel, HeartPulse, Wrench, Zap, Hammer, Camera, Car, Calculator, Stethoscope, User } from 'lucide-react';
+import { Award, Clock, DollarSign, Globe, Briefcase, GraduationCap, Building2, MapPin, X, Check, MessageSquare, Video, ShieldCheck, Search, Filter, Monitor, Map, Plus, ChevronRight, Gavel, HeartPulse, Wrench, Zap, Hammer, Camera, Car, Calculator, Stethoscope, User, Star } from 'lucide-react';
 
 import { GlassCard } from '../ui/GlassCard';
 import JobForms from './JobForms';
@@ -56,10 +56,11 @@ const FeaturedExpertsBanner = ({ experts, onExpertClick }: { experts: any[], onE
                                 <h4 className="text-white font-bold truncate group-hover:text-blue-400 transition-colors uppercase tracking-tight">{exp.name} {exp.surname}</h4>
                                 <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest truncate">{exp.profession}</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <div className="flex gap-0.5">
-                                        {[1, 2, 3, 4, 5].map(i => <div key={i} className="w-1 h-1 rounded-full bg-amber-500"></div>)}
+                                    <div className="flex gap-0.5 items-center">
+                                        <Star size={10} className="text-amber-400 fill-amber-400" />
+                                        <span className="text-[10px] text-amber-400 font-black">{Number(exp.rating || 0).toFixed(1)}</span>
                                     </div>
-                                    <span className="text-[10px] text-white/40 font-bold uppercase">Mustasno</span>
+                                    <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest pl-1 border-l border-white/10">Mutaxassis</span>
                                 </div>
                             </div>
                         </div>
@@ -103,6 +104,23 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
     const [showJobForm, setShowJobForm] = useState(false);
     const [isBooking, setIsBooking] = useState(false);
     const [bookingSuccess, setBookingSuccess] = useState(false);
+    const [showEnrollModal, setShowEnrollModal] = useState(false);
+    const [selectedGroupToEnroll, setSelectedGroupToEnroll] = useState("");
+    const [expertGroups, setExpertGroups] = useState<any[]>([]);
+    const [bookingError, setBookingError] = useState<string | null>(null);
+
+    const translateBookingError = (msg: string) => {
+        if (msg.toLowerCase().includes('insufficient funds')) {
+            return "Balansingizda mablag' yetarli emas. Iltimos, hamyoningizni to'ldiring.";
+        }
+        if (msg.toLowerCase().includes('not a registered expert')) {
+            return "Ushbu foydalanuvchi mutaxassis sifatida ro'yxatdan o'tmagan.";
+        }
+        if (msg.toLowerCase().includes('unauthorized')) {
+            return "Ruxsat etilmadi. Qayta tizimga kiring.";
+        }
+        return msg || "Kutilmagan xatolik yuz berdi.";
+    };
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
 
@@ -163,11 +181,61 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
         setSelectedExpert(null);
     };
 
-    const handleBook = async (expert: any) => {
+    const openEnrollModal = async (expert: any) => {
+        setIsBooking(false);
+        setBookingSuccess(false);
+        setExpertGroups([]);
+        setSelectedGroupToEnroll("");
+        setShowEnrollModal(true);
+        setBookingError(null);
+
+        try {
+            const token = localStorage.getItem('token');
+            // Primary: fetch expert's groups directly from DB via API
+            const res = await fetch(`${API_URL}/api/chats/expert/${expert.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const apiGroups = await res.json();
+                if (Array.isArray(apiGroups) && apiGroups.length > 0) {
+                    setExpertGroups(apiGroups);
+                    // Crucial: set default group
+                    const firstGroupId = apiGroups[0].chatId || apiGroups[0].id;
+                    if (firstGroupId) {
+                        setSelectedGroupToEnroll(firstGroupId);
+                    }
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error('[openEnrollModal] API fetch failed:', e);
+        }
+
+        // Fallback: parse expert_groups field from expert profile
+        try {
+            const groups = typeof expert.expert_groups === 'string'
+                ? JSON.parse(expert.expert_groups)
+                : expert.expert_groups;
+            if (Array.isArray(groups) && groups.length > 0) {
+                setExpertGroups(groups);
+                // Crucial: set default group if not set by API
+                const firstGroupId = groups[0].chatId || groups[0].id;
+                if (firstGroupId) {
+                    setSelectedGroupToEnroll(firstGroupId);
+                }
+            }
+        } catch (e) {
+            console.error('[openEnrollModal] expert_groups parse failed:', e);
+        }
+    };
+
+
+    const handleBook = async () => {
+        if (!selectedExpert) return;
         setIsBooking(true);
         try {
             const token = localStorage.getItem('token');
-            const amount = parseFloat(expert.hourly_rate || expert.service_price || '0');
+            const amount = parseFloat(selectedExpert.hourly_rate || selectedExpert.service_price || '0');
 
             const res = await fetch(`${API_URL}/api/wallet/book`, {
                 method: 'POST',
@@ -175,24 +243,55 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ expertId: expert.id, amount })
+                body: JSON.stringify({ expertId: selectedExpert.id, amount })
             });
             const data = await res.json();
+            setBookingError(null);
 
             if (res.ok && data.success) {
-                setBookingSuccess(true);
-                // Clear success message after 4 seconds
-                setTimeout(() => {
-                    setBookingSuccess(false);
-                    setSelectedExpert(null);
-                }, 4000);
-            } else {
+                let enrollmentError = false;
+                if (selectedGroupToEnroll) {
+                    const myUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    const myUserId = myUser.id || myUser._id;
 
-                alert(data.message || 'Xatolik yuz berdi. Balansingizni tekshiring.');
+                    if (!myUserId) {
+                        console.error('[Enrollment] Could not determine current user ID!');
+                        enrollmentError = true;
+                    } else {
+                        try {
+                            const addRes = await fetch(`${API_URL}/api/chats/${selectedGroupToEnroll}/participants`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ userId: myUserId })
+                            });
+                            if (!addRes.ok) {
+                                enrollmentError = true;
+                            }
+                        } catch (err) {
+                            enrollmentError = true;
+                        }
+                    }
+                }
+
+                if (enrollmentError) {
+                    alert("To'lov bajarildi, lekin guruhga qo'shishda xatolik yuz berdi. Iltimos mutaxassis bilan bog'laning.");
+                } else {
+                    setBookingSuccess(true);
+                    setTimeout(() => {
+                        setBookingSuccess(false);
+                        setShowEnrollModal(false);
+                        setSelectedExpert(null);
+                    }, 4000);
+                }
+            } else {
+                setBookingError(translateBookingError(data.message));
             }
         } catch (e) {
             console.error(e);
-            alert('Tarmoq xatosi');
+            setBookingError('Tarmoq xatosi yuz berdi.');
         } finally {
             setIsBooking(false);
         }
@@ -231,7 +330,7 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
             )}
 
             {/* Header / Search */}
-            <GlassCard className="!p-3 flex flex-col md:flex-row gap-3 items-center sticky top-0 z-10 bg-[#1c242f]/80 backdrop-blur-xl border border-white/10 shadow-2xl">
+            <GlassCard className="!p-3 flex flex-col md:flex-row gap-3 items-center sticky top-0 z-10 bg-[rgba(var(--glass-rgb),0.8)] backdrop-blur-xl border border-white/10 shadow-2xl">
                 <div className="flex-1 w-full relative">
                     <form onSubmit={handleSearch}>
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
@@ -399,7 +498,7 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
             {/* DETAIL MODAL */}
             {selectedExpert && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setSelectedExpert(null)}>
-                    <GlassCard className="w-full max-w-[550px] max-h-[90vh] overflow-y-auto bg-[#1c242f] rounded-[32px] !p-0 shadow-3xl border border-white/10 animate-scale-up no-scrollbar" onClick={e => e.stopPropagation()}>
+                    <GlassCard className="w-full max-w-[550px] max-h-[90vh] overflow-y-auto bg-[rgba(var(--glass-rgb),0.85)] rounded-[32px] !p-0 shadow-3xl border border-white/10 animate-scale-up no-scrollbar" onClick={e => e.stopPropagation()}>
                         <div className="relative h-48 bg-gradient-to-br from-blue-600/40 to-indigo-600/40 p-8 flex items-end">
                             <button onClick={() => setSelectedExpert(null)} className="absolute top-6 right-6 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white/60 hover:text-white transition-all backdrop-blur-md">
                                 <X className="h-6 w-6" />
@@ -416,10 +515,18 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                                     <h2 className="text-white text-2xl font-black">
                                         {mainTab === 'experts' ? `${selectedExpert.name} ${selectedExpert.surname}` : (selectedExpert.sub_type === 'employer' ? selectedExpert.company_name : selectedExpert.full_name)}
                                     </h2>
-                                    <span className="text-blue-300 font-bold uppercase tracking-widest text-xs flex items-center gap-2 mt-1">
-                                        {mainTab === 'experts' ? selectedExpert.profession : selectedExpert.position}
-                                        <ShieldCheck className="h-4 w-4" />
-                                    </span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-blue-300 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
+                                            {mainTab === 'experts' ? selectedExpert.profession : selectedExpert.position}
+                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                        </span>
+                                        {mainTab === 'experts' && (
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-400/10 rounded-full border border-amber-400/20">
+                                                <Star size={10} className="text-amber-400 fill-amber-400" />
+                                                <span className="text-[10px] text-amber-400 font-black">{Number(selectedExpert.rating || 0).toFixed(1)}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -508,25 +615,13 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                                 {mainTab === 'experts' && (
                                     <div className="space-y-3">
                                         <button
-                                            onClick={() => handleBook(selectedExpert)}
+                                            onClick={() => openEnrollModal(selectedExpert)}
                                             disabled={isBooking || bookingSuccess}
                                             className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                         >
                                             <DollarSign className="h-5 w-5" />
-                                            {isBooking ? 'Kafillanmoqda...' : (bookingSuccess ? "So'rov Yuborildi" : "Darsga yozilish (Kafillash)")}
+                                            Darsga yozilish (Kafillash)
                                         </button>
-
-                                        {bookingSuccess && (
-                                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 animate-fade-in mb-3">
-                                                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                                                    <Check className="h-4 w-4 text-white" />
-                                                </div>
-                                                <div className="text-emerald-400 text-[11px] font-bold leading-tight">
-                                                    Mentorga so'rov yuborildi. <br />
-                                                    MALI kafillikda (escrow) saqlanmoqda.
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
@@ -542,6 +637,81 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
                                 </div>
                             </div>
                         </div>
+                    </GlassCard>
+                </div>
+            )}
+
+            {/* ENROLL MODAL */}
+            {showEnrollModal && selectedExpert && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setShowEnrollModal(false)}>
+                    <GlassCard className="w-full max-w-[400px] bg-[rgba(var(--glass-rgb),0.95)] rounded-[24px] !p-6 shadow-3xl border border-white/10 animate-scale-up" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-white">Darsga yozilish</h3>
+                            <button onClick={() => setShowEnrollModal(false)} className="text-white/40 hover:text-white transition-colors">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-6">
+                            <p className="text-emerald-400 text-sm font-medium">
+                                Siz ushbu mutaxassisning guruhiga qo'shilmoqchisiz. 1 oylik dars narxi (<span className="font-bold">{selectedExpert.hourly_rate || selectedExpert.service_price} MALI</span>) hisobingizdan vaqtincha muzlatiladi va dars so'ngida yechiladi.
+                            </p>
+                        </div>
+
+                        {expertGroups.length > 0 ? (
+                            <div className="mb-6 space-y-2">
+                                <label className="text-xs font-bold text-white/40 uppercase tracking-widest pl-1">Guruhni tanlang (Vaqti)</label>
+                                <select
+                                    value={selectedGroupToEnroll}
+                                    onChange={(e) => setSelectedGroupToEnroll(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-white outline-none cursor-pointer hover:bg-white/10 transition-all appearance-none"
+                                >
+                                    {expertGroups.map(grp => (
+                                        <option key={grp.id || grp.chatId} value={grp.chatId || grp.id} className="bg-[#1A242D] text-white">
+                                            {grp.name} ({grp.time})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="mb-6 p-4 bg-white/5 border border-white/10 rounded-xl text-center">
+                                <p className="text-white/60 text-sm">Ushbu mutaxassis hozircha guruh xonalarini biriktirmagan.</p>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handleBook}
+                            disabled={isBooking || bookingSuccess || (expertGroups.length > 0 && !selectedGroupToEnroll)}
+                            className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                            {isBooking ? 'Jarayonda...' : (bookingSuccess ? "Muvaffaqiyatli Qo'shildingiz!" : "Tasdiqlash va Yozilish")}
+                        </button>
+
+                        {bookingError && (
+                            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                                <p className="text-red-400 text-sm font-medium text-center">
+                                    {bookingError}
+                                </p>
+                                {bookingError.includes("mablag' yetarli emas") && (
+                                    <button
+                                        onClick={() => {
+                                            setShowEnrollModal(false);
+                                            // Ideally trigger WalletPanel open, but for now we instruct the user
+                                            alert("Hamyon bo'limiga o'tib, hisobingizni to'ldirishingiz mumkin.");
+                                        }}
+                                        className="w-full mt-2 text-blue-400 text-xs font-bold hover:underline"
+                                    >
+                                        Hisobni to'ldirishga o'tish
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {bookingSuccess && (
+                            <p className="text-emerald-400 text-xs text-center mt-3 font-medium">
+                                Guruh suhbatlar sahifasida paydo bo'ldi.
+                            </p>
+                        )}
                     </GlassCard>
                 </div>
             )}

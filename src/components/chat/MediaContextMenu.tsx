@@ -37,18 +37,46 @@ export default function MediaContextMenu({
     const adjustedY = typeof window !== 'undefined' && y + 320 > window.innerHeight ? y - 280 : y;
     const adjustedX = typeof window !== 'undefined' && x + 260 > window.innerWidth ? x - 240 : x;
 
-    const mediaUrl = message.text.startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/${message.text}`;
+    const mediaUrl = (message.text || "").startsWith('http') ? message.text : `${process.env.NEXT_PUBLIC_API_URL || 'https://mali-messenger-backend-production.up.railway.app'}${(message.text || "").startsWith('/') ? '' : '/'}${message.text}`;
     const isMedia = message.type === 'image' || message.type === 'video' || message.type === 'voice' || message.type === 'file';
 
-    const handleSaveAs = () => {
+    const handleSaveAs = async () => {
         if (!isMedia) return;
-        const a = document.createElement('a');
-        a.href = mediaUrl;
-        a.download = mediaUrl.split('/').pop() || 'media';
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        try {
+            const response = await fetch(mediaUrl);
+            const contentType = response.headers.get('content-type');
+
+            // If response is JSON, it's likely a 404/Error from the server
+            if (contentType && contentType.includes('application/json')) {
+                const errData = await response.json();
+                console.error('Download failed: Server returned error', errData);
+                alert("Xatolik: Fayl serverdan topilmadi (404).");
+                onClose();
+                return;
+            }
+
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            // Use metadata file name if available, otherwise fallback to URL filename
+            a.download = message.metadata?.file_name || message.text.split('/').pop() || 'media';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed', error);
+            // Fallback to simple direct link if fetch fails
+            const a = document.createElement('a');
+            a.href = mediaUrl;
+            a.download = message.text.split('/').pop() || 'media';
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
         onClose();
     };
 

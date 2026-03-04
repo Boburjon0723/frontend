@@ -10,7 +10,8 @@ interface MediaViewerOverlayProps {
 }
 
 export default function MediaViewerOverlay({ url, type, onClose }: MediaViewerOverlayProps) {
-    const fullUrl = url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${url}`;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+    const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in" onClick={onClose}>
