@@ -34,7 +34,8 @@ import {
     UserX,
     FileSignature,
     Archive,
-    CheckCircle2
+    CheckCircle2,
+    PenTool
 } from 'lucide-react';
 
 interface LiveWorkspaceProps {
