@@ -55,11 +55,18 @@ export default function LiveWorkspace({
     onEndCall,
     callType = 'video'
 }: LiveWorkspaceProps) {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const getAvatarUrl = (path: string) => {
+        if (!path) return null;
+        if (path.startsWith('http') || path.startsWith('data:')) return path;
+        return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+    };
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
     const [showTools, setShowTools] = useState(true);
     const [activeRightTab, setActiveRightTab] = useState<'tools' | 'chat'>('tools');
     const [noteContent, setNoteContent] = useState('');
+    const [isShared, setIsShared] = useState(false);
 
     // Chat & Recording States
     const { socket } = useSocket();
@@ -173,11 +180,17 @@ export default function LiveWorkspace({
             setBreakoutRooms({});
         };
 
+        const handleWhiteboardToggle = (isOpen: boolean) => {
+            console.log("Whiteboard toggle received:", isOpen);
+            setShowWhiteboard(isOpen);
+        };
+
         socket.on('session_chat:receive', handleReceive);
         socket.on('breakout:assigned', handleBreakoutAssigned);
         socket.on('breakout:rooms_created', handleBreakoutRoomsCreated);
         socket.on('breakout:active', handleBreakoutActive);
         socket.on('breakout:ended', handleBreakoutEnded);
+        socket.on('whiteboard:toggle', handleWhiteboardToggle);
 
         return () => {
             socket.off('session_chat:receive', handleReceive);
@@ -185,6 +198,7 @@ export default function LiveWorkspace({
             socket.off('breakout:rooms_created', handleBreakoutRoomsCreated);
             socket.off('breakout:active', handleBreakoutActive);
             socket.off('breakout:ended', handleBreakoutEnded);
+            socket.off('whiteboard:toggle', handleWhiteboardToggle);
         };
     }, [socket, chat?.id]);
 
@@ -219,6 +233,13 @@ export default function LiveWorkspace({
         }
     };
 
+    const toggleWhiteboard = () => {
+        const newState = !showWhiteboard;
+        setShowWhiteboard(newState);
+        if (socket) {
+            socket.emit('whiteboard:toggle', { sessionId: chat?.id || 'demo-room', isOpen: newState });
+        }
+    };
     const toggleVideo = () => {
         if (localStream) {
             localStream.getVideoTracks().forEach(track => {
@@ -235,11 +256,14 @@ export default function LiveWorkspace({
                 method: 'POST',
                 body: JSON.stringify({
                     client_id: chat.otherUser?.id || chat.userId || chat.id,
-                    content: noteContent
+                    content: noteContent,
+                    shared_with_client: isShared,
+                    chat_id: chat.id
                 })
             });
             if (res.ok) {
                 setNoteContent('');
+                setIsShared(false);
                 alert("Eslatma saqlandi!");
             }
         } catch (e) { console.error("Note save error:", e); }
@@ -270,10 +294,7 @@ export default function LiveWorkspace({
                                 Interaktiv Doska (Whiteboard)
                             </h3>
                             <button
-                                onClick={() => {
-                                    setShowWhiteboard(false);
-                                    if (socket) socket.emit('whiteboard:toggle', { sessionId: chat?.id || 'demo-session', isOpen: false });
-                                }}
+                                onClick={toggleWhiteboard}
                                 className="p-2 bg-white/5 hover:bg-red-500 text-white rounded-xl transition-all shadow-xl"
                             >
                                 <X size={24} />
@@ -281,12 +302,9 @@ export default function LiveWorkspace({
                         </div>
                         <LiveWhiteboard
                             socket={socket}
-                            sessionId={chat?.id || 'demo-session'}
-                            isMentor={true}
-                            onClose={() => {
-                                setShowWhiteboard(false);
-                                if (socket) socket.emit('whiteboard:toggle', { sessionId: chat?.id || 'demo-session', isOpen: false });
-                            }}
+                            sessionId={currentRoomId}
+                            isMentor={isMentor}
+                            onClose={toggleWhiteboard}
                         />
                     </div>
                 </div>
@@ -406,6 +424,18 @@ export default function LiveWorkspace({
                                                 placeholder="Mijoz haqida muhim ma'lumotlarni yozing..."
                                                 className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-white/10"
                                             />
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id="share-note"
+                                                    checked={isShared}
+                                                    onChange={(e) => setIsShared(e.target.checked)}
+                                                    className="w-4 h-4 rounded border-white/10 bg-white/5 text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <label htmlFor="share-note" className="text-[10px] text-white/60 font-medium cursor-pointer">
+                                                    Mijoz bilan ulashish (Guruhga yuborish)
+                                                </label>
+                                            </div>
                                             <button
                                                 onClick={saveQuickNote}
                                                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
@@ -569,9 +599,20 @@ export default function LiveWorkspace({
                                             <p className="text-xs text-white/30 text-center m-auto">Xabarlar tarixi bo'sh</p>
                                         ) : (
                                             chatMessages.map((msg, i) => (
-                                                <div key={i} className={`flex flex-col max-w-[85%] ${msg.sender_id === user?.id ? 'self-end bg-blue-600/20' : 'self-start bg-white/5'} p-2.5 rounded-xl`}>
-                                                    <span className="text-[10px] text-white/40 mb-1 font-bold">{msg.sender_name}</span>
-                                                    <span className="text-sm text-white/90">{msg.text}</span>
+                                                <div key={i} className={`flex gap-3 max-w-[85%] ${msg.sender_id === user?.id ? 'self-end flex-row-reverse' : 'self-start'}`}>
+                                                    <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/10">
+                                                        {getAvatarUrl(msg.sender_avatar || msg.senderAvatar) ? (
+                                                            <img src={getAvatarUrl(msg.sender_avatar || msg.senderAvatar)!} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <User className="w-4 h-4 text-white/40" />
+                                                        )}
+                                                    </div>
+                                                    <div className={`flex flex-col ${msg.sender_id === user?.id ? 'items-end' : 'items-start'}`}>
+                                                        <div className={`p-2.5 rounded-xl ${msg.sender_id === user?.id ? 'bg-blue-600/20 rounded-tr-none' : 'bg-white/5 rounded-tl-none'}`}>
+                                                            <span className="text-[10px] text-white/40 mb-1 font-bold block">{msg.sender_name || msg.senderName}</span>
+                                                            <span className="text-sm text-white/90">{msg.text || msg.content}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))
                                         )}
@@ -609,6 +650,13 @@ export default function LiveWorkspace({
             <div className="h-20 glass-premium border-t border-white/10 flex items-center justify-between px-6 z-[110]">
                 {/* Left: Meeting Info */}
                 <div className="flex items-center gap-3 w-1/3">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden">
+                        {getAvatarUrl(chat?.otherUser?.avatar_url || chat?.otherUser?.avatar) ? (
+                            <img src={getAvatarUrl(chat?.otherUser?.avatar_url || chat?.otherUser?.avatar)!} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <Users className="w-5 h-5 text-white/40" />
+                        )}
+                    </div>
                     <div className="hidden md:block">
                         <p className="font-bold text-sm truncate">{chat?.name || 'Live Workspace'}</p>
                         <p className="text-xs text-white/50">{isMentor ? 'Siz Mentorsiz' : 'Talaba'}</p>

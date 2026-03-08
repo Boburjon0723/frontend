@@ -216,8 +216,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             try {
                 const url = msg.text.startsWith('http') ? msg.text : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/${msg.text}`;
                 await navigator.share({
-                    title: 'Mali Messenger',
-                    text: msg.type === 'text' ? msg.text : 'Mali Messenger orqali yuborildi',
+                    title: 'MessenjrAli',
+                    text: msg.type === 'text' ? msg.text : 'MessenjrAli orqali yuborildi',
                     url: msg.type === 'text' ? undefined : url
                 });
             } catch (e) { console.error(e); }

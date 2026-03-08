@@ -28,6 +28,7 @@ import {
     Send,
     Plus,
     Users,
+    User,
     Monitor,
     Clock,
     Signal,
@@ -60,6 +61,12 @@ interface SpecialistDashboardProps {
 }
 
 export default function SpecialistDashboard({ user, sessionId, socket, onBack }: SpecialistDashboardProps) {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const getAvatarUrl = (path: string) => {
+        if (!path) return null;
+        if (path.startsWith('http') || path.startsWith('data:')) return path;
+        return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+    };
     const [activeTab, setActiveTab] = useState<'attendees' | 'materials' | 'chat' | 'history'>('attendees');
     const [sessionNotes, setSessionNotes] = useState('');
     const [chatInput, setChatInput] = useState('');
@@ -109,6 +116,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
     // Modal States
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isBreakoutOpen, setIsBreakoutOpen] = useState(false);
+    const [globalError, setGlobalError] = useState<string | null>(null);
 
     // LiveKit States
     const [lkToken, setLkToken] = useState<string>("");
@@ -134,6 +142,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                 }
             } catch (err) {
                 console.error("Failed to fetch materials", err);
+                setGlobalError("Materiallarni yuklashda xatolik yuz berdi. Keyinroq qayta urinib ko'ring.");
             }
         };
 
@@ -193,6 +202,7 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                 }
             } catch (err) {
                 console.error("Failed to fetch expert groups", err);
+                setGlobalError("Guruhlar ro'yxatini yuklashda xatolik. Internet aloqangizni tekshiring.");
             }
         };
 
@@ -527,6 +537,26 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
 
 
 
+    if (globalError) {
+        return (
+            <div className="flex h-full w-full items-center justify-center bg-[rgba(var(--glass-rgb),0.8)] text-white px-6 text-center">
+                <div className="space-y-3 max-w-md">
+                    <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-sm font-semibold">Sessiyani yuklashda xatolik</p>
+                    <p className="text-xs text-slate-200/80">{globalError}</p>
+                    {onBack && (
+                        <button
+                            onClick={onBack}
+                            className="mt-2 inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-colors"
+                        >
+                            Orqaga qaytish
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     if (!lkToken || !lkWsUrl) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-[rgba(var(--glass-rgb),0.8)] text-white">
@@ -604,7 +634,8 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack }:
                     showNewGroupPrompt, setShowNewGroupPrompt,
                     newGroupName, setNewGroupName,
                     newGroupTime, setNewGroupTime,
-                    isLessonStarted, setIsLessonStarted, handleStartLesson
+                    isLessonStarted, setIsLessonStarted, handleStartLesson,
+                    getAvatarUrl
                 }}
             />
             <RoomAudioRenderer />
@@ -665,7 +696,8 @@ function DashboardContent({
     selectedGroupId, setSelectedGroupId,
     showNewGroupPrompt, setShowNewGroupPrompt,
     newGroupName, setNewGroupName,
-    newGroupTime, setNewGroupTime
+    newGroupTime, setNewGroupTime,
+    getAvatarUrl
 }: any) {
     const { localParticipant } = useLocalParticipant();
     const connectionState = useConnectionState();
@@ -755,8 +787,8 @@ function DashboardContent({
                         </button>
                     )}
                     <div className="flex items-center gap-2">
-                        {user?.avatar_url ? (
-                            <img src={user.avatar_url} alt="Mentor" className="w-8 h-8 rounded-full object-cover" />
+                        {getAvatarUrl(user?.avatar_url || user?.avatar) ? (
+                            <img src={getAvatarUrl(user?.avatar_url || user?.avatar)!} alt="Mentor" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
                             <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
                                 {user?.name?.[0] || 'M'}
@@ -797,8 +829,8 @@ function DashboardContent({
                         End Session
                     </button>
 
-                    {user?.avatar_url ? (
-                        <img src={user.avatar_url} alt="User" className="w-9 h-9 rounded-full object-cover" />
+                    {getAvatarUrl(user?.avatar_url || user?.avatar) ? (
+                        <img src={getAvatarUrl(user?.avatar_url || user?.avatar)!} alt="User" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
                         <div className="w-9 h-9 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-sm">
                             {user?.name?.[0] || 'U'}
@@ -865,7 +897,7 @@ function DashboardContent({
                                                     <div className="relative">
                                                         <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden border border-white/10 shadow-inner">
                                                             <img
-                                                                src={student.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}&backgroundColor=1e293b`}
+                                                                src={getAvatarUrl(student.avatar_url || student.avatar) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}&backgroundColor=1e293b`}
                                                                 alt={student.name}
                                                                 className="w-full h-full object-cover"
                                                             />
@@ -1064,7 +1096,7 @@ function DashboardContent({
                                         <div key={m.id || i} className="flex gap-2.5 animate-slide-up group/msg">
                                             <div className="w-6 h-6 rounded-full overflow-hidden shrink-0 mt-0.5 border border-white/5">
                                                 <img
-                                                    src={senderAvatar ? (senderAvatar.includes('http') ? senderAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${senderAvatar.startsWith('/') ? '' : '/'}${senderAvatar}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${senderName}&backgroundColor=1e293b`}
+                                                    src={getAvatarUrl(senderAvatar) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${senderName}&backgroundColor=1e293b`}
                                                     alt="avatar"
                                                     className="w-full h-full object-cover"
                                                     onError={(e: any) => { e.target.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=User&backgroundColor=1e293b" }}
@@ -1121,9 +1153,18 @@ function DashboardContent({
                     {/* Bottom control bar (Mirrored from User's preferred design) */}
                     <div className="h-[72px] shrink-0 flex items-center justify-between px-6 bg-[#1c1f2b] border-t border-white/5 relative z-10 w-full">
                         {/* Title Info */}
-                        <div className="flex flex-col">
-                            <h3 className="text-white font-bold text-sm">{user?.name || 'Tessa Walker'}</h3>
-                            <p className="text-white/40 text-xs text-left">Siz Mentorsiz</p>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden">
+                                {getAvatarUrl(user?.avatar_url || user?.avatar) ? (
+                                    <img src={getAvatarUrl(user?.avatar_url || user?.avatar)!} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <User className="w-5 h-5 text-white/40" />
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <h3 className="text-white font-bold text-sm">{user?.name || 'Tessa Walker'}</h3>
+                                <p className="text-white/40 text-xs text-left">Siz Mentorsiz</p>
+                            </div>
                         </div>
 
                         {/* Center Actions */}

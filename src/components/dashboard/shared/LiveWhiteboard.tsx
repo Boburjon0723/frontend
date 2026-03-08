@@ -86,39 +86,7 @@ export function LiveWhiteboard({ socket, sessionId, isMentor, onClose }: LiveWhi
         return () => resizeObserver.disconnect();
     }, []);
 
-    // Socket Listeners
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleDraw = (data: DrawData) => {
-            if (data.sessionId !== sessionId) return;
-            if (!canvasRef.current) return;
-            const ctx = canvasRef.current.getContext('2d');
-            if (!ctx) return;
-
-            drawLine(ctx, data.x0, data.y0, data.x1, data.y1, data.color, data.lineWidth, false);
-        };
-
-        const handleClear = (data: any) => {
-            if (data.sessionId !== sessionId) return;
-            if (!canvasRef.current) return;
-            const ctx = canvasRef.current.getContext('2d');
-            if (ctx) {
-                ctx.fillStyle = '#1c1f2b';
-                ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-            }
-        };
-
-        socket.on('whiteboard:draw', handleDraw);
-        socket.on('whiteboard:clear', handleClear);
-
-        return () => {
-            socket.off('whiteboard:draw', handleDraw);
-            socket.off('whiteboard:clear', handleClear);
-        };
-    }, [socket]);
-
-    const drawLine = (
+    const drawLine = React.useCallback((
         ctx: CanvasRenderingContext2D,
         x0: number, y0: number, x1: number, y1: number,
         color: string, width: number,
@@ -153,7 +121,39 @@ export function LiveWhiteboard({ socket, sessionId, isMentor, onClose }: LiveWhi
             color,
             lineWidth: width
         });
-    };
+    }, [socket, sessionId]);
+
+    // Socket Listeners
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleDraw = (data: DrawData) => {
+            if (data.sessionId !== sessionId) return;
+            if (!canvasRef.current) return;
+            const ctx = canvasRef.current.getContext('2d');
+            if (!ctx) return;
+
+            drawLine(ctx, data.x0, data.y0, data.x1, data.y1, data.color, data.lineWidth, false);
+        };
+
+        const handleClear = (data: any) => {
+            if (data.sessionId !== sessionId) return;
+            if (!canvasRef.current) return;
+            const ctx = canvasRef.current.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = '#1c1f2b';
+                ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+            }
+        };
+
+        socket.on('whiteboard:draw', handleDraw);
+        socket.on('whiteboard:clear', handleClear);
+
+        return () => {
+            socket.off('whiteboard:draw', handleDraw);
+            socket.off('whiteboard:clear', handleClear);
+        };
+    }, [socket, sessionId, drawLine]);
 
     const getMousePos = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
         if (!canvasRef.current) return { x: 0, y: 0 };
@@ -265,6 +265,49 @@ export function LiveWhiteboard({ socket, sessionId, isMentor, onClose }: LiveWhi
                         title="Tozalash"
                     >
                         <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="w-px h-5 bg-white/10 mx-1"></div>
+
+                    {isMentor && (
+                        <button
+                            onClick={async () => {
+                                if (!canvasRef.current) return;
+                                const dataUrl = canvasRef.current.toDataURL('image/png');
+                                try {
+                                    await fetch('/api/specialists/whiteboard/snapshot', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            session_id: sessionId,
+                                            snapshot_data: dataUrl,
+                                            chat_id: sessionId
+                                        })
+                                    });
+                                    alert("Doska holati saqlandi!");
+                                } catch (e) {
+                                    console.error("Snapshot save error:", e);
+                                }
+                            }}
+                            className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-bold transition-all"
+                        >
+                            Saqlash
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => {
+                            if (!canvasRef.current) return;
+                            const imgData = canvasRef.current.toDataURL('image/png');
+                            import('jspdf').then(({ jsPDF }) => {
+                                const pdf = new jsPDF('l', 'px', [canvasRef.current!.width, canvasRef.current!.height]);
+                                pdf.addImage(imgData, 'PNG', 0, 0, canvasRef.current!.width, canvasRef.current!.height);
+                                pdf.save(`whiteboard-${sessionId}.pdf`);
+                            });
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all"
+                    >
+                        PDF Yuklash
                     </button>
                 </div>
 

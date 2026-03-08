@@ -5,13 +5,14 @@ export const metadata: Metadata = {
   title: "MessenjrAli - Tez va xavfsiz muloqot hamda to'lovlar",
   description: "iOS-inspired communication and financial platform",
   icons: {
-    icon: '/favicon.png',
-    shortcut: '/favicon.png',
-    apple: '/favicon.png',
-  }
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 import { SocketProvider } from "@/context/SocketContext";
+import ClientShell from "./ClientShell";
 
 export default function RootLayout({
   children,
@@ -22,9 +23,10 @@ export default function RootLayout({
     <html lang="uz">
       <body className="antialiased">
         <SocketProvider>
-          {children}
+          <ClientShell>{children}</ClientShell>
         </SocketProvider>
       </body>
     </html>
   );
 }
+

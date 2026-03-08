@@ -113,6 +113,8 @@ export default function ProfileViewer({
     const [newGroupTime, setNewGroupTime] = useState("10:00");
     const [expertFee, setExpertFee] = useState(50);
 
+    const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
+
     const isMentorProfession = (prof: string) => {
         return ['O\'qituvchi', 'Mentor', 'Startap mentori', 'Dasturchi mentor'].includes(prof);
     };
@@ -261,12 +263,12 @@ export default function ProfileViewer({
 
     const handleSaveExpertData = async () => {
         if (!profession) {
-            alert("Iltimos, kasb turini tanlang!");
+            setToast({ type: 'warning', message: "Iltimos, avval kasb turini tanlang." });
             return;
         }
 
         if (isMentorProfession(profession) && expertGroups.length === 0) {
-            alert("Mentorlar uchun kamida bitta guruh qo'shish majburiy!");
+            setToast({ type: 'warning', message: "Mentorlar uchun kamida bitta guruh qo'shish majburiy." });
             return;
         }
 
@@ -400,19 +402,39 @@ export default function ProfileViewer({
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert("Muvaffaqiyatli obuna bo'ldingiz!");
+                setToast({ type: 'success', message: "Mutaxassis obunasi muvaffaqiyatli faollashtirildi." });
                 fetchWallet();
                 setVerifiedStatus('pending');
                 setIsExpert(true);
             } else {
-                alert(data.message || "Obuna bo'lishda xatolik yuz berdi. Balansingizni tekshiring.");
+                setToast({
+                    type: 'error',
+                    message: data.message || "Obuna bo'lishda xatolik yuz berdi. Balansingizni va internet aloqangizni tekshiring.",
+                });
             }
         } catch (e) {
-            alert('Tarmoq xatosi');
+            setToast({
+                type: 'error',
+                message: "Tarmoq xatosi. Keyinroq yana urinib ko'ring.",
+            });
         } finally {
             setIsSubscribing(false);
         }
     };
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const getAvatarUrl = (path: string) => {
+        if (!path) return null;
+        if (path.startsWith('http') || path.startsWith('data:')) return path;
+        return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+    };
+
+    // Auto-hide toast after a short delay
+    useEffect(() => {
+        if (!toast) return;
+        const timer = setTimeout(() => setToast(null), 4000);
+        return () => clearTimeout(timer);
+    }, [toast]);
 
     // --- RENDERERS ---
 
@@ -425,7 +447,7 @@ export default function ProfileViewer({
             {/* Header with Big Image */}
             <div className="relative h-[220px] w-full overflow-hidden flex-shrink-0">
                 <img
-                    src={user.avatar || user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1000&auto=format&fit=crop"}
+                    src={getAvatarUrl(user.avatar || user.avatar_url) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1000&auto=format&fit=crop"}
                     className="w-full h-full object-cover brightness-75 scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#121B22] via-transparent to-black/30"></div>
@@ -788,7 +810,7 @@ export default function ProfileViewer({
                         onClick={() => { setEditFirstName(user.name || ""); setEditLastName(user.surname || ""); setShowNameModal(true); }}>
                         <div className="w-[64px] h-[64px] rounded-full overflow-hidden border-2 border-white/10 shadow-xl relative">
                             <img
-                                src={user.avatar || user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1000&auto=format&fit=crop"}
+                                src={getAvatarUrl(user.avatar || user.avatar_url) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1000&auto=format&fit=crop"}
                                 alt="Avatar"
                                 className="w-full h-full object-cover transition-transform group-hover:scale-110"
                             />
@@ -1194,6 +1216,30 @@ export default function ProfileViewer({
                     />
                 )
             }
+
+            {toast && (
+                <div
+                    className={`
+                        fixed bottom-6 left-1/2 -translate-x-1/2 z-[130] px-4 py-3 rounded-2xl shadow-2xl border text-xs sm:text-sm
+                        ${toast.type === 'success' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-100' :
+                            toast.type === 'warning' ? 'bg-amber-500/15 border-amber-500/40 text-amber-100' :
+                                'bg-red-500/15 border-red-500/40 text-red-100'}
+                    `}
+                >
+                    <div className="flex items-center gap-2">
+                        {toast.type === 'success' && <CheckCircle className="w-4 h-4 flex-shrink-0" />}
+                        {toast.type === 'warning' && <Bell className="w-4 h-4 flex-shrink-0" />}
+                        {toast.type === 'error' && <X className="w-4 h-4 flex-shrink-0" />}
+                        <span className="leading-snug">{toast.message}</span>
+                        <button
+                            onClick={() => setToast(null)}
+                            className="ml-2 text-white/60 hover:text-white flex-shrink-0"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

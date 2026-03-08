@@ -139,9 +139,9 @@ function MessagesPageContent() {
     const fetchChats = useCallback(async () => {
         const token = localStorage.getItem('token');
         if (!token) {
-            console.warn("[MessagesPage] No token found, redirecting to auth");
+            console.warn("[MessagesPage] No token found, redirecting to login");
             setLoading(false);
-            window.location.href = '/auth';
+            window.location.href = '/login';
             return;
         }
         console.log("[MessagesPage] fetchChats starting...");
@@ -427,7 +427,7 @@ function MessagesPageContent() {
     const showDetail = !!selectedChat || isPanelCategory;
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-black">
+        <div className="fixed inset-0 flex items-center justify-center bg-black animate-fade-in">
             {/* Global Dynamic Background Image */}
             <div
                 className="absolute inset-0 z-0 transition-all duration-700 ease-in-out"
@@ -457,7 +457,21 @@ function MessagesPageContent() {
                             <div className="px-6 py-8 flex items-center gap-5 border-b border-white/10 group cursor-pointer hover:bg-white/10 transition-all"
                                 onClick={() => { setShowMenu(false); setActiveCategory('profile'); }}>
                                 <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/20 shadow-2xl relative">
-                                    {currentUser?.avatar ? <img src={currentUser.avatar} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xl">{currentUser?.name?.[0]}</div>}
+                                    {currentUser?.avatar || currentUser?.avatar_url ? (
+                                        <img
+                                            src={(() => {
+                                                const path = currentUser.avatar || currentUser.avatar_url;
+                                                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                                                if (path.startsWith('http') || path.startsWith('data:')) return path;
+                                                return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+                                            })()}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xl">
+                                            {currentUser?.name?.[0]}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-white font-bold truncate text-lg drop-shadow-sm">{currentUser?.name}</h3>
@@ -675,7 +689,7 @@ function MessagesPageContent() {
                                                     localStorage.removeItem('token');
                                                     localStorage.removeItem('refreshToken');
                                                     localStorage.removeItem('user');
-                                                    window.location.href = '/auth';
+                                                    window.location.href = '/login';
                                                 }}
                                                 user={currentUser}
                                                 bgSettings={{ blur: bgBlur, imageBlur: bgImageBlur, image: bgImage, isDark: isDarkMode }}
@@ -695,22 +709,37 @@ function MessagesPageContent() {
                                                             onBack={() => setIsExpertMode(false)}
                                                         />
                                                     </div>
-                                                ) : (selectedChat ? (
+                                                ) : loading ? (
+                                                    <div className="hidden lg:flex flex-1 h-full items-center justify-center flex-col gap-4 lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
+                                                        <div className="w-full max-w-md space-y-3 px-6">
+                                                            <div className="h-4 w-32 rounded-full bg-white/5 animate-pulse" />
+                                                            <div className="h-32 rounded-2xl bg-white/5 animate-pulse" />
+                                                            <div className="h-10 rounded-full bg-white/5 animate-pulse" />
+                                                        </div>
+                                                    </div>
+                                                ) : selectedChat ? (
                                                     <ChatWindow
                                                         chat={selectedChat}
                                                         onToggleInfo={() => setShowRightPanel(!showRightPanel)}
                                                         onBack={() => setSelectedChat(null)}
                                                         onMarkAsRead={handleMarkAsRead}
                                                     />
-                                                )
-                                                    : (
-                                                        <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
-                                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                                                                <MessageSquare className="h-10 w-10 opacity-20" />
-                                                            </div>
-                                                            <p className="text-sm font-medium">Suhbatni boshlash uchun kontakt tanlang</p>
+                                                ) : (
+                                                    <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
+                                                        <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
+                                                            <MessageSquare className="h-10 w-10 opacity-20" />
                                                         </div>
-                                                    ))}
+                                                        <p className="text-sm font-medium">
+                                                            Suhbatni boshlash uchun kontakt tanlang yoki yangi kontakt qo&apos;shing.
+                                                        </p>
+                                                        <button
+                                                            onClick={() => setShowContactsModal(true)}
+                                                            className="mt-1 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15 transition-colors"
+                                                        >
+                                                            Kontaktlar oynasini ochish
+                                                        </button>
+                                                    </div>
+                                                )}
                 </main>
 
                 {/* Mobile Bottom Navigation - V3 Pro Style, hidden when chat is open */}

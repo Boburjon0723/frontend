@@ -252,7 +252,21 @@ export default function ChatList({
 
             <div className="flex-1 overflow-y-auto px-3 space-y-3 custom-scrollbar">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center pt-10 text-white/40">Yuklanmoqda...</div>
+                    <div className="pt-3 space-y-3">
+                        {Array.from({ length: 6 }).map((_, idx) => (
+                            <div
+                                key={idx}
+                                className="animate-pulse rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-center gap-3"
+                            >
+                                <div className="h-10 w-10 rounded-full bg-white/10" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                                    <div className="h-2 w-3/4 rounded-full bg-white/5" />
+                                </div>
+                                <div className="h-3 w-8 rounded-full bg-white/10" />
+                            </div>
+                        ))}
+                    </div>
                 ) : filteredChats.length > 0 ? (
                     filteredChats.map((chat, index) => {
                         const myId = currentUser?.id;

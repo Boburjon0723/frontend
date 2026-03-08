@@ -35,9 +35,27 @@ interface StudentDashboardProps {
     onLeave: () => void;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+const getAvatarUrl = (path: string) => {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
 function MentorProfileHeader() {
     const participants = useRemoteParticipants();
     const mentor = participants.length > 0 ? participants[0] : null;
+
+    // Attempt to get avatar from metadata
+    let mentorAvatar = null;
+    if (mentor?.metadata) {
+        try {
+            const meta = JSON.parse(mentor.metadata);
+            mentorAvatar = meta.avatar_url || meta.avatar;
+        } catch (e) {
+            // Not JSON or missing avatar
+        }
+    }
 
     return (
         <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg">
@@ -46,8 +64,12 @@ function MentorProfileHeader() {
                 <span className="text-xs font-bold text-white whitespace-nowrap">{mentor?.identity || 'Kutilmoqda...'}</span>
             </div>
             <div className="relative">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white text-xs border border-white/20 shadow-xl shadow-indigo-500/20">
-                    {mentor ? (mentor.identity?.[0]?.toUpperCase() || 'U') : '?'}
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white text-xs border border-white/20 shadow-xl shadow-indigo-500/20 overflow-hidden">
+                    {mentorAvatar ? (
+                        <img src={getAvatarUrl(mentorAvatar)!} alt="Mentor" className="w-full h-full object-cover" />
+                    ) : (
+                        mentor ? (mentor.identity?.[0]?.toUpperCase() || 'U') : '?'
+                    )}
                 </div>
                 {mentor && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#11131a]"></div>}
             </div>
@@ -61,6 +83,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
     const [token, setToken] = useState<string>('');
     const [wsUrl, setWsUrl] = useState<string>('');
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [materials, setMaterials] = useState<any[]>([]);
     const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -155,16 +178,23 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
 
     useEffect(() => {
         const fetchToken = async () => {
-            if (!sessionId || sessionId === 'demo-session-id') return;
+            if (!sessionId || sessionId === 'demo-session-id') {
+                setError("Sessiya topilmadi yoki tugagan. Mentor yuborgan havolani qayta tekshiring.");
+                setLoading(false);
+                return;
+            }
             try {
                 const res = await apiFetch(`/api/livekit/token?room=${sessionId}&username=${encodeURIComponent(user?.name || 'Talaba')}`);
                 if (res.ok) {
                     const data = await res.json();
                     setToken(data.token);
                     setWsUrl(data.wsUrl);
+                } else {
+                    setError("Video xonasiga ulanishda xatolik. Keyinroq qayta urinib ko'ring.");
                 }
             } catch (err) {
                 console.error(err);
+                setError("Tarmoqda xatolik yuz berdi. Internet aloqangizni tekshiring.");
             } finally {
                 setLoading(false);
             }
@@ -175,7 +205,26 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
     if (loading) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-[#0f1117]">
-                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm text-slate-200">Sessiya ma&apos;lumotlari yuklanmoqda...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex h-screen w-full flex-col items-center justify-center bg-[#0f1117] text-white px-4 text-center">
+                <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-lg mb-2 font-semibold">Sessiyaga ulanib bo&apos;lmadi</p>
+                <p className="text-sm mb-6 text-slate-300 max-w-md">{error}</p>
+                <button
+                    onClick={onLeave}
+                    className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold transition-all"
+                >
+                    Orqaga qaytish
+                </button>
             </div>
         );
     }
@@ -190,10 +239,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
         );
     }
 
-    const avatarUrl = user?.avatar_url || user?.avatar;
-    const finalAvatar = avatarUrl
-        ? (avatarUrl.startsWith('http') ? avatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatarUrl.startsWith('/') ? '' : '/'}${avatarUrl}`)
-        : "https://i.pravatar.cc/150?img=5";
+    const finalAvatar = getAvatarUrl(user?.avatar_url || user?.avatar) || "https://i.pravatar.cc/150?img=5";
 
     return (
         <div className="fixed inset-0 flex flex-col bg-[#0a0b10] text-white overflow-hidden font-sans">

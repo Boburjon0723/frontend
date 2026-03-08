@@ -19,6 +19,13 @@ interface LiveVideoFrameProps {
     immersive?: boolean;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+const getAvatarUrl = (path: string) => {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
 export function LiveVideoFrame({
     isMentor = false,
     isWhiteboardOpen = false,
@@ -93,9 +100,27 @@ export function LiveVideoFrame({
                             <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#0a0b10]">
-                                <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center text-white/20 border border-white/10 scale-110 animate-pulse">
-                                    <VideoIcon className="w-10 h-10" />
-                                </div>
+                                {(() => {
+                                    const participant = tracks.find(t => isMentor ? t.participant.isLocal : (!t.participant.isLocal))?.participant;
+                                    let avatar = null;
+                                    if (participant?.metadata) {
+                                        try {
+                                            const meta = JSON.parse(participant.metadata);
+                                            avatar = meta.avatar_url || meta.avatar;
+                                        } catch (e) { }
+                                    }
+                                    return (
+                                        <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-white/10 shadow-2xl">
+                                            {avatar ? (
+                                                <img src={getAvatarUrl(avatar)!} className="w-full h-full object-cover" alt="Avatar" />
+                                            ) : (
+                                                <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/20">
+                                                    <VideoIcon className="w-12 h-12" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 <p className="text-white/40 font-bold text-sm tracking-widest uppercase">
                                     {isMentor ? "Kamerangiz o'chirilgan" : "Ustoz ulanishi kutilmoqda..."}
                                 </p>
@@ -126,9 +151,27 @@ export function LiveVideoFrame({
                             <ParticipantTile trackRef={mainTrack} className="w-full h-full [&>video]:object-cover" />
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[#1a1d2e]">
-                                <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700/50 scale-110 shadow-xl">
-                                    <VideoIcon className="w-10 h-10 opacity-50" />
-                                </div>
+                                {(() => {
+                                    const participant = tracks.find(t => isMentor ? t.participant.isLocal : (!t.participant.isLocal))?.participant;
+                                    let avatar = null;
+                                    if (participant?.metadata) {
+                                        try {
+                                            const meta = JSON.parse(participant.metadata);
+                                            avatar = meta.avatar_url || meta.avatar;
+                                        } catch (e) { }
+                                    }
+                                    return (
+                                        <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-slate-700/50 shadow-xl">
+                                            {avatar ? (
+                                                <img src={getAvatarUrl(avatar)!} className="w-full h-full object-cover" alt="Avatar" />
+                                            ) : (
+                                                <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-600">
+                                                    <VideoIcon className="w-10 h-10 opacity-50" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 <p className="text-slate-500 font-bold text-sm">
                                     {isMentor ? "Kamerangiz o'chirilgan" : "Ustoz ulanishi kutilmoqda / Kamera o'chiq"}
                                 </p>

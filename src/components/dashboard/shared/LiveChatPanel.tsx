@@ -78,12 +78,23 @@ export function LiveChatPanel({ socket, sessionId, user, className = "" }: LiveC
                     chatMessages.map(msg => (
                         <div key={msg.id} className="flex gap-3.5 text-sm animate-slide-up group">
                             <div className="relative shrink-0">
-                                <img
-                                    src={msg.avatar && msg.avatar.includes('http') ? msg.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${msg.avatar?.startsWith('/') ? '' : '/'}${msg.avatar || ''}`}
-                                    alt="avatar"
-                                    className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-lg"
-                                    onError={(e: any) => { e.target.src = "https://i.pravatar.cc/150?img=5" }}
-                                />
+                                {(() => {
+                                    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+                                    const getAvatarUrl = (path: string) => {
+                                        if (!path) return null;
+                                        if (path.startsWith('http') || path.startsWith('data:')) return path;
+                                        return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+                                    };
+                                    const src = getAvatarUrl(msg.avatar) || "https://i.pravatar.cc/150?img=5";
+                                    return (
+                                        <img
+                                            src={src}
+                                            alt="avatar"
+                                            className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-lg"
+                                            onError={(e: any) => { e.target.src = "https://i.pravatar.cc/150?img=5" }}
+                                        />
+                                    );
+                                })()}
                                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border border-[#1c1f2b]"></div>
                             </div>
                             <div className="flex-1 min-w-0">

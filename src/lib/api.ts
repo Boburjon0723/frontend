@@ -48,7 +48,7 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('refreshToken');
                 localStorage.removeItem('user');
-                window.location.href = '/auth';
+                window.location.href = '/login';
             }
         }
     }
