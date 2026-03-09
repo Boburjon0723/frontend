@@ -148,7 +148,7 @@ export default function AdminPanel() {
         }
     };
 
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<string | null | undefined>(null);
 
     const fetchData = async (token: string) => {
         setLoading(true);
