@@ -37,28 +37,34 @@ interface Transaction {
     status: string;
 }
 
-interface Expert {
+interface JobCategory {
     id: string;
-    name: string;
-    surname: string;
-    username: string;
-    profession: string;
-    bio_expert?: string;
-    avatar_url?: string;
-    hourly_rate: string;
-    currency: string;
-    experience_years: string;
-    institution?: string;
-    specialization_details?: string;
-    service_languages?: string;
-    service_format?: string;
-    has_diploma: boolean;
-    diploma_url?: string;
-    id_url?: string;
-    selfie_url?: string;
-    certificate_url?: string;
-    resume_url?: string;
-    verified_status: 'pending' | 'approved' | 'rejected';
+    name_uz: string;
+    name_ru: string;
+    icon: string;
+    publication_price_mali: string;
+}
+id: string;
+name: string;
+surname: string;
+username: string;
+profession: string;
+bio_expert ?: string;
+avatar_url ?: string;
+hourly_rate: string;
+currency: string;
+experience_years: string;
+institution ?: string;
+specialization_details ?: string;
+service_languages ?: string;
+service_format ?: string;
+has_diploma: boolean;
+diploma_url ?: string;
+id_url ?: string;
+selfie_url ?: string;
+certificate_url ?: string;
+resume_url ?: string;
+verified_status: 'pending' | 'approved' | 'rejected';
 }
 
 export default function AdminPanel() {
@@ -78,7 +84,7 @@ export default function AdminPanel() {
     const [pendingExperts, setPendingExperts] = useState<Expert[]>([]);
     const [verifiedExperts, setVerifiedExperts] = useState<Expert[]>([]);
     const [expertTab, setExpertTab] = useState('pending'); // 'pending' | 'verified'
-    const [jobCategories, setJobCategories] = useState<any[]>([]);
+    const [jobCategories, setJobCategories] = useState<JobCategory[]>([]);
     const [newCategory, setNewCategory] = useState({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
     const [platformSettings, setPlatformSettings] = useState({ expert_verification_fee: 50 });
 
@@ -432,7 +438,7 @@ export default function AdminPanel() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {users.map((user) => (
+                                    {users.map((user: User) => (
                                         <tr key={user.id} className="hover:bg-white/5 transition-all group">
                                             <td className="p-6">
                                                 <div className="flex items-center gap-4">
@@ -478,7 +484,7 @@ export default function AdminPanel() {
                 {/* TopUps Tab */}
                 {activeTab === 'topups' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-                        {topUps.map((req) => (
+                        {topUps.map((req: TopUp) => (
                             <div key={req.id} className={`bg-slate-900 p-6 rounded-4xl border transition-all ${req.status === 'pending' ? 'border-amber-500/30 shadow-lg shadow-amber-500/5' : 'border-white/5'}`}>
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
@@ -520,7 +526,7 @@ export default function AdminPanel() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {transactions.map((t) => (
+                                    {transactions.map((t: Transaction) => (
                                         <tr key={t.id} className="hover:bg-white/5 transition-all group">
                                             <td className="p-6 text-xs text-slate-500 font-mono">{new Date(t.created_at).toLocaleString('uz-UZ')}</td>
                                             <td className="p-6"><span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase rounded-md border border-indigo-500/20">{t.type}</span></td>
@@ -704,7 +710,7 @@ export default function AdminPanel() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {jobCategories.map((cat) => (
+                                    {jobCategories.map((cat: JobCategory) => (
                                         <tr key={cat.id} className="hover:bg-white/5 transition-all">
                                             <td className="p-6 text-indigo-400 font-bold">{cat.icon}</td>
                                             <td className="p-6 font-bold">{cat.name_uz}</td>
