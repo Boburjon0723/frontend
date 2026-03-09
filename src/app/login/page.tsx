@@ -16,7 +16,9 @@ const COUNTRY_CODES = [
   { code: "+82", country: "KR", label: "South Korea" },
 ];
 
-export default function LoginPage() {
+import { Suspense } from "react";
+
+function Login() {
   const router = useRouter();
 
   const [countryCode, setCountryCode] = useState("+998");
@@ -123,7 +125,7 @@ export default function LoginPage() {
                 <div className="h-7 w-7 rounded-full border border-slate-900 bg-gradient-to-br from-emerald-400 to-cyan-500" />
                 <div className="h-7 w-7 rounded-full border border-slate-900 bg-gradient-to-br from-fuchsia-500 to-rose-500" />
               </div>
-              <span>Real-time xabarlar, qo&apos;ng&apos;iroqlar va kanal lar bir joyda.</span>
+              <span>Real-time xabarlar, qo&apos;ng&apos;iroqlar va kanallar bir joyda.</span>
             </div>
           </div>
 
@@ -255,6 +257,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="text-white animate-pulse">Yuklanmoqda...</div>
+      </div>
+    }>
+      <Login />
+    </Suspense>
   );
 }
 
