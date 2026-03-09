@@ -44,27 +44,29 @@ interface JobCategory {
     icon: string;
     publication_price_mali: string;
 }
-id: string;
-name: string;
-surname: string;
-username: string;
-profession: string;
-bio_expert ?: string;
-avatar_url ?: string;
-hourly_rate: string;
-currency: string;
-experience_years: string;
-institution ?: string;
-specialization_details ?: string;
-service_languages ?: string;
-service_format ?: string;
-has_diploma: boolean;
-diploma_url ?: string;
-id_url ?: string;
-selfie_url ?: string;
-certificate_url ?: string;
-resume_url ?: string;
-verified_status: 'pending' | 'approved' | 'rejected';
+interface Expert {
+    id: string;
+
+    name: string;
+    surname: string;
+    username: string;
+    profession: string;
+    bio_expert?: string;
+    avatar_url?: string;
+    hourly_rate: string;
+    currency: string;
+    experience_years: string;
+    institution?: string;
+    specialization_details?: string;
+    service_languages?: string;
+    service_format?: string;
+    has_diploma: boolean;
+    diploma_url?: string;
+    id_url?: string;
+    selfie_url?: string;
+    certificate_url?: string;
+    resume_url?: string;
+    verified_status: 'pending' | 'approved' | 'rejected';
 }
 
 export default function AdminPanel() {
