@@ -10,6 +10,9 @@ interface Message {
     timestamp: string;
     isOwn: boolean;
     senderName?: string;
+    senderAvatar?: string;
+    sender_avatar?: string;
+    avatar?: string;
     isAdmin?: boolean;
     type?: string;
     metadata?: any;
@@ -178,8 +181,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                 {!message.isOwn && (
                     !isContinuation ? (
-                        <div className="w-8 h-8 rounded-full flex-shrink-0 bg-blue-500/20 border border-white/10 flex items-center justify-center overflow-hidden">
-                            <span className="text-xs font-bold text-blue-400">{(message.senderName || "?")[0].toUpperCase()}</span>
+                        <div className="w-8 h-8 rounded-full flex-shrink-0 bg-blue-500/20 border border-white/10 flex items-center justify-center overflow-hidden text-[10px] font-bold">
+                            {message.senderAvatar || message.sender_avatar || message.avatar ? (
+                                <img
+                                    src={message.senderAvatar || message.sender_avatar || message.avatar}
+                                    alt={message.senderName || "User"}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                            ) : null}
+                            <span className="text-blue-400">{(message.senderName || "?")[0].toUpperCase()}</span>
                         </div>
                     ) : (
                         <div className="w-8 flex-shrink-0" /> // Spacer

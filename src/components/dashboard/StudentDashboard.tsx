@@ -13,7 +13,6 @@ import {
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import {
-    Settings,
     FileText,
     Video,
     VideoOff,
@@ -23,14 +22,12 @@ import {
     PenTool,
     MessageSquare,
     LogOut,
-    Menu,
-    MoreHorizontal,
     X
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 
 interface StudentDashboardProps {
-    user: any;
+    user: { name?: string; id?: string; avatar_url?: string; avatar?: string } | null;
     sessionId: string;
     onLeave: () => void;
 }
@@ -47,12 +44,12 @@ function MentorProfileHeader() {
     const mentor = participants.length > 0 ? participants[0] : null;
 
     // Attempt to get avatar from metadata
-    let mentorAvatar = null;
+    let mentorAvatar: string | null = null;
     if (mentor?.metadata) {
         try {
             const meta = JSON.parse(mentor.metadata);
             mentorAvatar = meta.avatar_url || meta.avatar;
-        } catch (e) {
+        } catch (_e) {
             // Not JSON or missing avatar
         }
     }
@@ -85,11 +82,11 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const [materials, setMaterials] = useState<any[]>([]);
-    const [quizzes, setQuizzes] = useState<any[]>([]);
+    const [materials, setMaterials] = useState<Array<{ id?: string; url: string; title: string; type?: string }>>([]);
+    const [quizzes, setQuizzes] = useState<Array<{ id: number; title: string; questions?: Array<{ text: string; options?: Array<{ id: string; label?: string; text?: string }> }> }>>([]);
     const [quizAnswers, setQuizAnswers] = useState<Record<number, Record<number, string>>>({});
     const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
-    const [activePoll, setActivePoll] = useState<any>(null);
+    const [activePoll, setActivePoll] = useState<{ id: string; questions?: Array<{ text: string; options?: Array<{ id: string; text: string }> }> } | null>(null);
 
     const [showChat, setShowChat] = useState(false);
     const [showMaterials, setShowMaterials] = useState(false);
@@ -99,27 +96,33 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
         if (!socket || !sessionId) return;
         socket.emit('session_join', { sessionId });
 
-        const handleNewMaterial = (data: any) => {
+        const handleNewMaterial = (data: { sessionId: string, material: { id?: string, url: string, title: string, type?: string } }) => {
             if (data.sessionId === sessionId) {
                 setMaterials(prev => [...prev, data.material]);
             }
         };
 
-        const handleQuizStart = (data: any) => {
+        const handleQuizStart = (data: { sessionId: string, quizDetails: { id: number, title: string, isQuickPoll?: boolean, questions?: any[] } }) => {
             if (data.sessionId === sessionId) {
                 if (data.quizDetails?.isQuickPoll) {
-                    setActivePoll(data.quizDetails);
+                    setActivePoll(data.quizDetails as any);
                 } else {
-                    setQuizzes(prev => [...prev, data.quizDetails]);
+                    setQuizzes(prev => [...prev, data.quizDetails as any]);
                 }
             }
         };
 
-        const handleWhiteboardToggle = (isOpen: boolean) => {
+        const handleWhiteboardToggle = (data: boolean | { isOpen: boolean, sessionId?: string }) => {
+            // Handle both object and boolean formats
+            const isOpen = typeof data === 'boolean' ? data : data?.isOpen;
+            if (typeof data === 'object' && data?.sessionId && data.sessionId !== sessionId) {
+                return; // Ignore other sessions
+            }
             setIsWhiteboardOpen(isOpen);
+            console.log(`[StudentDashboard] Whiteboard toggled: ${isOpen}`);
         };
 
-        const handleStudentKicked = (data: any) => {
+        const handleStudentKicked = (data: { sessionId: string }) => {
             if (data.sessionId === sessionId) {
                 alert("Siz mentor tomonidan darsdan chiqarildingiz.");
                 onLeave();
@@ -137,7 +140,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
             socket.off('whiteboard:toggle', handleWhiteboardToggle);
             socket.off('student_kicked', handleStudentKicked);
         };
-    }, [socket, sessionId]);
+    }, [socket, sessionId, onLeave]);
 
     const handleSelectAnswer = (quizId: number, questionIndex: number, optionId: string) => {
         setQuizAnswers(prev => ({
@@ -239,7 +242,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
         );
     }
 
-    const finalAvatar = getAvatarUrl(user?.avatar_url || user?.avatar) || "https://i.pravatar.cc/150?img=5";
+    const finalAvatar = getAvatarUrl((user?.avatar_url || user?.avatar)!) || "https://i.pravatar.cc/150?img=5";
 
     return (
         <div className="fixed inset-0 flex flex-col bg-[#0a0b10] text-white overflow-hidden font-sans">
@@ -270,7 +273,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full opacity-75 blur group-hover:opacity-100 transition duration-500 group-hover:duration-200"></div>
                             <img
                                 src={finalAvatar}
-                                alt="avatar"
+                                alt="Studentning profil rasmi"
                                 className="relative w-11 h-11 rounded-full object-cover border-2 border-white/50 shadow-2xl transition-transform group-hover:scale-105"
                             />
                             <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#11131a] shadow-lg"></div>
@@ -350,7 +353,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                                             {quizzes.length === 0 ? (
                                                 <div className="flex flex-col items-center justify-center h-full opacity-30 gap-4">
                                                     <PenTool className="w-12 h-12" />
-                                                    <p className="text-sm font-medium">Hozircha faol viktorina yo'q</p>
+                                                    <p className="text-sm font-medium">Hozircha faol viktorina yo&apos;q</p>
                                                 </div>
                                             ) : (
                                                 quizzes.map(quiz => (
@@ -444,7 +447,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
                         <h2 className="text-2xl font-black text-white mb-3 flex items-center gap-3">
                             <span className="p-2 bg-blue-500 rounded-xl">⚡</span>
-                            TEZKOR SO'ROV
+                            TEZKOR SO&apos;ROV
                         </h2>
                         <p className="text-base text-white/80 mb-8 font-medium leading-relaxed">{activePoll.questions?.[0]?.text}</p>
 
@@ -488,14 +491,14 @@ function StudentMediaControls() {
             <button
                 onClick={toggleMic}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${!isMicEnabled ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
-                title={isMicEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"}
+                title={isMicEnabled ? "Mikrofonni o&apos;chirish" : "Mikrofonni yoqish"}
             >
                 {isMicEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
             </button>
             <button
                 onClick={toggleCam}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${!isCamEnabled ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
-                title={isCamEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"}
+                title={isCamEnabled ? "Kamerani o&apos;chirish" : "Kamerani yoqish"}
             >
                 {isCamEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
             </button>

@@ -754,7 +754,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                     type: message.type || 'text',
                     clientSideId: message.clientSideId,
                     metadata: message.metadata,
-                    is_read: message.is_read || false
+                    is_read: message.is_read || false,
+                    senderName: message.sender_name || 'User',
+                    senderAvatar: message.sender_avatar || message.avatar || null
                 };
                 setMessages((prev) => {
                     const exists = prev.some(m => String(m.id) === String(newMessage.id));

@@ -335,10 +335,16 @@ export default function ProfileViewer({
             verified_status: 'pending'
         };
         if (socket) socket.emit('update_profile', payload);
-        setShowExpertModal(false);
         const newUser = { ...user, ...payload };
         setLocalUser(newUser);
         localStorage.setItem('user', JSON.stringify(newUser));
+        setVerifiedStatus('pending');
+        setIsExpert(true);
+        setShowExpertModal(false);
+        setToast({
+            type: 'success',
+            message: "Mutaxassis ma'lumotlari tasdiqlash uchun yuborildi. Admin tasdig'ini kuting.",
+        });
     };
 
     const handleDocumentUpload = (key: string, file: File) => {
@@ -1183,22 +1189,35 @@ export default function ProfileViewer({
                         </div>
 
                         <div
-                            className="sticky bottom-0 pt-8 pb-2 mt-8 flex flex-col gap-3"
-                            style={{ backgroundColor: `rgba(${bgSettings?.rgb?.r || 18}, ${bgSettings?.rgb?.g || 27}, ${bgSettings?.rgb?.b || 34}, 0.8)`, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+                            className="sticky bottom-0 pt-4 pb-4 mt-4 flex flex-col gap-3 rounded-2xl"
+                            style={{ backgroundColor: `rgba(${bgSettings?.rgb?.r || 18}, ${bgSettings?.rgb?.g || 27}, ${bgSettings?.rgb?.b || 34}, 0.9)`, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
                         >
-                            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-start gap-3 mb-2 animate-in slide-in-from-bottom duration-500">
-                                <div className="p-2 bg-amber-500/20 rounded-lg text-amber-500">
+                            <div className="bg-amber-500/5 border border-amber-500/15 px-3 py-2.5 rounded-xl flex items-start gap-2.5 mb-1 animate-in slide-in-from-bottom duration-300">
+                                <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-400 flex-shrink-0">
                                     <Bell className="h-4 w-4" />
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-[11px] font-bold text-amber-400 uppercase tracking-widest mb-1">Muhim ma'lumot</p>
-                                    <p className="text-xs text-white/70 leading-relaxed">
-                                        Ekspert profili admin tomonidan tasdiqlanganidan so'ng, hisobingizdan <span className="text-amber-400 font-bold">{expertFee} MALI</span> avtomatik ravishda yechiladi.
+                                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-[0.18em] mb-0.5">
+                                        Muhim ma&apos;lumot
+                                    </p>
+                                    <p className="text-[11px] text-white/75 leading-snug">
+                                        Profilingiz admin tomonidan tasdiqlangach, hisobingizdan{" "}
+                                        <span className="text-amber-300 font-semibold">{expertFee} MALI</span> avtomatik yechiladi.
                                     </p>
                                 </div>
                             </div>
-                            <GlassButton onClick={handleSaveExpertData} className="w-full !bg-gradient-to-r from-[#20A090] to-[#168578] !text-white !rounded-2xl py-4 font-bold shadow-xl shadow-[#00A884]/20">Saqlash va Tasdiqlashga yuborish</GlassButton>
-                            <button onClick={() => setShowExpertModal(false)} className="w-full py-3 text-white/30 hover:text-white transition-colors text-sm">Bekor qilish</button>
+                            <GlassButton
+                                onClick={handleSaveExpertData}
+                                className="w-full !bg-gradient-to-r from-[#20A090] to-[#168578] !text-white !rounded-xl py-3 font-bold shadow-lg shadow-[#00A884]/20"
+                            >
+                                Saqlash va tasdiqlashga yuborish
+                            </GlassButton>
+                            <button
+                                onClick={() => setShowExpertModal(false)}
+                                className="w-full py-2.5 text-[13px] text-white/40 hover:text-white transition-colors"
+                            >
+                                Bekor qilish
+                            </button>
                         </div>
                     </GlassCard >
                 </div >

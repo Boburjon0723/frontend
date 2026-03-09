@@ -1,9 +1,67 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+
+// Types
+interface User {
+    id: string;
+    name: string;
+    surname: string;
+    username?: string;
+    phone?: string;
+    email?: string;
+    role: string;
+    is_active: boolean;
+    avatar_url?: string;
+    wallet?: {
+        balance: string;
+    };
+}
+
+interface TopUp {
+    id: string;
+    amount: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    created_at: string;
+}
+
+interface Transaction {
+    id: string;
+    created_at: string;
+    type: string;
+    sender_name?: string;
+    receiver_name: string;
+    amount: string;
+    status: string;
+}
+
+interface Expert {
+    id: string;
+    name: string;
+    surname: string;
+    username: string;
+    profession: string;
+    bio_expert?: string;
+    avatar_url?: string;
+    hourly_rate: string;
+    currency: string;
+    experience_years: string;
+    institution?: string;
+    specialization_details?: string;
+    service_languages?: string;
+    service_format?: string;
+    has_diploma: boolean;
+    diploma_url?: string;
+    id_url?: string;
+    selfie_url?: string;
+    certificate_url?: string;
+    resume_url?: string;
+    verified_status: 'pending' | 'approved' | 'rejected';
+}
 
 export default function AdminPanel() {
-    const router = useRouter();
     const [authorized, setAuthorized] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -14,13 +72,13 @@ export default function AdminPanel() {
 
     // Dashboard State
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [users, setUsers] = useState([]);
-    const [topUps, setTopUps] = useState([]);
-    const [transactions, setTransactions] = useState([]);
-    const [pendingExperts, setPendingExperts] = useState([]);
-    const [verifiedExperts, setVerifiedExperts] = useState([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [topUps, setTopUps] = useState<TopUp[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [pendingExperts, setPendingExperts] = useState<Expert[]>([]);
+    const [verifiedExperts, setVerifiedExperts] = useState<Expert[]>([]);
     const [expertTab, setExpertTab] = useState('pending'); // 'pending' | 'verified'
-    const [jobCategories, setJobCategories] = useState([]);
+    const [jobCategories, setJobCategories] = useState<any[]>([]);
     const [newCategory, setNewCategory] = useState({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
     const [platformSettings, setPlatformSettings] = useState({ expert_verification_fee: 50 });
 
@@ -28,6 +86,7 @@ export default function AdminPanel() {
 
     useEffect(() => {
         checkAdminAccess();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const checkAdminAccess = async () => {
@@ -48,7 +107,7 @@ export default function AdminPanel() {
             } else {
                 setLoading(false);
             }
-        } catch (e) {
+        } catch {
             setLoading(false);
         }
     };
@@ -76,7 +135,7 @@ export default function AdminPanel() {
             } else {
                 setLoginError(data.message || 'Login failed');
             }
-        } catch (err) {
+        } catch {
             setLoginError('Connection error');
         }
     };
@@ -103,15 +162,7 @@ export default function AdminPanel() {
             if (categoriesRes.ok) setJobCategories(await categoriesRes.json());
 
             // Optional: Fetch settings if endpoint exists
-            try {
-                const settingsRes = await fetch(`${API_URL}/api/admin/settings`, { headers: { Authorization: `Bearer ${token}` } });
-                if (settingsRes.ok) setPlatformSettings(await settingsRes.json());
-            } catch (e) { console.log("Settings endpoint not found, using defaults"); }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
+        } catch { console.log("Settings endpoint not found, using defaults"); }
     };
 
     const handleApproveTopUp = async (requestId: string) => {
@@ -130,9 +181,7 @@ export default function AdminPanel() {
                 const err = await res.json();
                 alert('Error: ' + err.message);
             }
-        } catch (e) {
-            alert('Failed');
-        }
+        } catch { alert('Failed'); }
     };
 
     const handleRejectTopUp = async (requestId: string) => {
@@ -145,9 +194,7 @@ export default function AdminPanel() {
                 body: JSON.stringify({ requestId })
             });
             fetchData(token!);
-        } catch (e) {
-            alert('Failed');
-        }
+        } catch { alert('Failed'); }
     };
 
     const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
@@ -162,9 +209,7 @@ export default function AdminPanel() {
                 body: JSON.stringify({ userId, status: newStatus })
             });
             fetchData(token!);
-        } catch (e) {
-            alert('Failed');
-        }
+        } catch { alert('Failed'); }
     };
 
     const handleVerifyExpert = async (userId: string, status: 'approved' | 'rejected') => {
@@ -183,7 +228,7 @@ export default function AdminPanel() {
                 const err = await res.json();
                 alert('Xato: ' + err.message);
             }
-        } catch (e) { alert('Failed'); }
+        } catch { alert('Failed'); }
     };
 
     const handleCreateCategory = async () => {
@@ -204,7 +249,7 @@ export default function AdminPanel() {
                 setNewCategory({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
                 fetchData(token!);
             }
-        } catch (e) { alert('Xato'); }
+        } catch { alert('Xato'); }
     };
 
     const handleUpdateSettings = async () => {
@@ -220,12 +265,12 @@ export default function AdminPanel() {
             } else {
                 alert('Xato yuz berdi (Endpoint mavjud emas bo\'lishi mumkin)');
             }
-        } catch (e) { alert('Xato'); }
-    }
+        } catch { alert('Xato'); }
+    };
 
     const ImageModal = () => (
         selectedImage ? (
-            <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedImage(null)}>
+            <div className="fixed inset-0 z-100 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedImage(null)}>
                 <div className="relative max-w-4xl w-full h-full flex items-center justify-center">
                     <img src={selectedImage} alt="Document" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
                     <button className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 p-2 rounded-full text-white backdrop-blur-md transition-all">
@@ -250,7 +295,7 @@ export default function AdminPanel() {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
                 <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 w-full max-w-md shadow-3xl">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2 text-center">Mali Admin</h1>
+                    <h1 className="text-3xl font-bold bg-linear-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2 text-center">Mali Admin</h1>
                     <p className="text-slate-500 text-center mb-8">Tizimga kirish uchun ruxsat kerak</p>
                     <form onSubmit={handleAdminLogin} className="space-y-5">
                         <div className="space-y-1">
@@ -294,7 +339,7 @@ export default function AdminPanel() {
             <header className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg shadow-indigo-600/20">M</div>
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Admin Control</h1>
+                    <h1 className="text-xl font-bold bg-linear-to-r from-white to-white/60 bg-clip-text text-transparent">Admin Control</h1>
                 </div>
                 <div className="flex items-center gap-6">
                     <span className="text-slate-400 text-sm hidden md:block">Bugun: {new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' })}</span>
@@ -302,13 +347,13 @@ export default function AdminPanel() {
                 </div>
             </header>
 
-            <div className="max-w-[1400px] mx-auto p-6">
+            <div className="max-w-350 mx-auto p-6">
                 {/* Navigation Tabs */}
                 <nav className="flex flex-wrap gap-2 mb-8 bg-white/5 p-1.5 rounded-2xl border border-white/5 w-fit">
                     {[
                         { id: 'dashboard', label: 'Dashboard', count: null },
                         { id: 'users', label: 'Foydalanuvchilar', count: users.length },
-                        { id: 'topups', label: 'Top-Up', count: topUps.filter((t: any) => t.status === 'pending').length },
+                        { id: 'topups', label: 'Top-Up', count: topUps.filter(t => t.status === 'pending').length },
                         { id: 'transactions', label: 'Tranzaksiyalar', count: null },
                         { id: 'experts', label: 'Ekspertlar', count: pendingExperts.length },
                         { id: 'jobs', label: 'Ishlar/Narxlar', count: jobCategories.length },
@@ -346,9 +391,9 @@ export default function AdminPanel() {
                             </div>
                         </div>
                         <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl shadow-xl">
-                            <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-4">Kutilayotgan to'lovlar</h3>
+                            <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-4">Kutilayotgan to&apos;lovlar</h3>
                             <div className="flex items-end gap-3">
-                                <span className="text-4xl font-bold text-amber-500">{topUps.filter((t: any) => t.status === 'pending').length}</span>
+                                <span className="text-4xl font-bold text-amber-500">{topUps.filter(t => t.status === 'pending').length}</span>
                                 <span className="text-slate-500 text-sm mb-1">ta ariza</span>
                             </div>
                         </div>
@@ -371,7 +416,7 @@ export default function AdminPanel() {
 
                 {/* Users Tab */}
                 {activeTab === 'users' && (
-                    <div className="bg-slate-900 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl animate-fade-in">
+                    <div className="bg-slate-900 rounded-4xl overflow-hidden border border-white/5 shadow-2xl animate-fade-in">
                         <div className="p-6 border-b border-white/5 bg-white/5">
                             <h2 className="text-xl font-bold">Barcha foydalanuvchilar</h2>
                         </div>
@@ -387,12 +432,12 @@ export default function AdminPanel() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {users.map((user: any) => (
+                                    {users.map((user) => (
                                         <tr key={user.id} className="hover:bg-white/5 transition-all group">
                                             <td className="p-6">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center font-bold text-indigo-400 overflow-hidden">
-                                                        {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : user.name[0]}
+                                                        {user.avatar_url ? <img src={user.avatar_url} alt={`${user.name} avatar`} className="w-full h-full object-cover" /> : user.name[0]}
                                                     </div>
                                                     <div>
                                                         <div className="font-bold text-[15px]">{user.name} {user.surname}</div>
@@ -433,8 +478,8 @@ export default function AdminPanel() {
                 {/* TopUps Tab */}
                 {activeTab === 'topups' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-                        {topUps.map((req: any) => (
-                            <div key={req.id} className={`bg-slate-900 p-6 rounded-[32px] border transition-all ${req.status === 'pending' ? 'border-amber-500/30 shadow-lg shadow-amber-500/5' : 'border-white/5'}`}>
+                        {topUps.map((req) => (
+                            <div key={req.id} className={`bg-slate-900 p-6 rounded-4xl border transition-all ${req.status === 'pending' ? 'border-amber-500/30 shadow-lg shadow-amber-500/5' : 'border-white/5'}`}>
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
                                         <p className="text-3xl font-mono font-bold text-white mb-1">{parseFloat(req.amount).toLocaleString()} <span className="text-slate-500 text-lg">MALI</span></p>
@@ -461,7 +506,7 @@ export default function AdminPanel() {
 
                 {/* Transactions Tab */}
                 {activeTab === 'transactions' && (
-                    <div className="bg-slate-900 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl animate-fade-in">
+                    <div className="bg-slate-900 rounded-4xl overflow-hidden border border-white/5 shadow-2xl animate-fade-in">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="bg-black/20 text-slate-500 uppercase text-[10px] font-bold tracking-widest">
@@ -475,7 +520,7 @@ export default function AdminPanel() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {transactions.map((t: any) => (
+                                    {transactions.map((t) => (
                                         <tr key={t.id} className="hover:bg-white/5 transition-all group">
                                             <td className="p-6 text-xs text-slate-500 font-mono">{new Date(t.created_at).toLocaleString('uz-UZ')}</td>
                                             <td className="p-6"><span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase rounded-md border border-indigo-500/20">{t.type}</span></td>
@@ -499,12 +544,12 @@ export default function AdminPanel() {
                             <button onClick={() => setExpertTab('verified')} className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${expertTab === 'verified' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Tasdiqlanganlar ({verifiedExperts.length})</button>
                         </div>
 
-                        {(expertTab === 'pending' ? pendingExperts : verifiedExperts).map((exp: any) => (
+                        {(expertTab === 'pending' ? pendingExperts : verifiedExperts).map((exp) => (
                             <div key={exp.id} className="bg-slate-900/80 backdrop-blur-md p-8 rounded-[40px] border border-white/5 flex flex-col gap-8 shadow-2xl hover:border-indigo-500/30 transition-all">
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                     <div className="flex gap-6 items-start">
-                                        <div className="w-20 h-20 rounded-3xl bg-indigo-600/10 border border-white/10 flex-shrink-0 relative overflow-hidden flex items-center justify-center">
-                                            {exp.avatar_url ? <img src={exp.avatar_url} className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-indigo-400">{exp.name[0]}</span>}
+                                        <div className="w-20 h-20 rounded-3xl bg-indigo-600/10 border border-white/10 shrink-0 relative overflow-hidden flex items-center justify-center">
+                                            {exp.avatar_url ? <img src={exp.avatar_url} alt={`${exp.name} avatar`} className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-indigo-400">{exp.name[0]}</span>}
                                             <div className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg"></div>
                                         </div>
                                         <div className="space-y-1">
@@ -516,7 +561,7 @@ export default function AdminPanel() {
                                             <p className="text-slate-400 text-sm mt-3 leading-relaxed max-w-xl italic">{exp.bio_expert || 'Biografiya kiritilmagan.'}</p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col items-end gap-2 bg-white/5 p-4 rounded-[28px] border border-white/5 min-w-[200px]">
+                                    <div className="flex flex-col items-end gap-2 bg-white/5 p-4 rounded-[28px] border border-white/5 min-w-50">
                                         <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Xizmat narxi</span>
                                         <div className="text-3xl font-mono font-bold text-emerald-400">{parseFloat(exp.hourly_rate).toLocaleString()} <span className="text-sm font-sans">{exp.currency}</span></div>
                                         <div className="text-[10px] text-slate-500 uppercase tracking-tighter">1 soat uchun</div>
@@ -526,12 +571,12 @@ export default function AdminPanel() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="bg-black/20 p-5 rounded-3xl space-y-3">
                                         <h4 className="text-slate-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div> Professional Ma'lumot
+                                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div> Professional Ma&apos;lumot
                                         </h4>
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm"><span className="text-slate-400">Tajriba:</span> <span className="font-bold text-white">{exp.experience_years} yil</span></div>
-                                            <div className="flex justify-between text-sm"><span className="text-slate-400">Ta'lim:</span> <span className="font-bold text-white">{exp.institution || 'Mavjud emas'}</span></div>
-                                            <div className="flex justify-between text-sm"><span className="text-slate-400">Yo'nalish:</span> <span className="font-bold text-indigo-400">{exp.specialization_details || 'Batafsil..'}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-slate-400">Ta&apos;lim:</span> <span className="font-bold text-white">{exp.institution || 'Mavjud emas'}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-slate-400">Yo&apos;nalish:</span> <span className="font-bold text-indigo-400">{exp.specialization_details || 'Batafsil..'}</span></div>
                                         </div>
                                     </div>
                                     <div className="bg-black/20 p-5 rounded-3xl space-y-3">
@@ -541,7 +586,7 @@ export default function AdminPanel() {
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm"><span className="text-slate-400">Tillar:</span> <span className="font-bold text-white">{exp.service_languages || 'Kiritilmagan'}</span></div>
                                             <div className="flex justify-between text-sm"><span className="text-slate-400">Format:</span> <span className="font-bold text-white">{exp.service_format || 'Mavjud emas'}</span></div>
-                                            <div className="flex justify-between text-sm"><span className="text-slate-400">Diplom:</span> <span className={`font-bold ${exp.has_diploma ? 'text-emerald-400' : 'text-red-400'}`}>{exp.has_diploma ? 'Mavjud' : 'Yo\'q'}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-slate-400">Diplom:</span> <span className={`font-bold ${exp.has_diploma ? 'text-emerald-400' : 'text-red-400'}`}>{exp.has_diploma ? 'Mavjud' : 'Yo&apos;q'}</span></div>
                                         </div>
                                     </div>
                                     <div className="bg-black/20 p-5 rounded-3xl space-y-3">
@@ -578,7 +623,7 @@ export default function AdminPanel() {
                                                 >
                                                     <span className="text-indigo-400 font-bold group-hover:text-indigo-300 transition-colors flex items-center gap-2">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                                        REZYUMENI KO'RISH (PDF)
+                                                        REZYUMENI KO&apos;RISH (PDF)
                                                     </span>
                                                 </button>
                                             )}
@@ -589,27 +634,27 @@ export default function AdminPanel() {
                                 <div className="flex gap-4 pt-4 border-t border-white/5">
                                     {exp.verified_status === 'pending' ? (
                                         <>
-                                            <button onClick={() => handleVerifyExpert(exp.id, 'approved')} className="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] py-4 rounded-[24px] font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3">
+                                            <button onClick={() => handleVerifyExpert(exp.id, 'approved')} className="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] py-4 rounded-3xl font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                 Ekspertni tasdiqlash
                                             </button>
-                                            <button onClick={() => handleVerifyExpert(exp.id, 'rejected')} className="px-8 py-4 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-[24px] font-bold border border-red-500/20 transition-all">
+                                            <button onClick={() => handleVerifyExpert(exp.id, 'rejected')} className="px-8 py-4 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-3xl font-bold border border-red-500/20 transition-all">
                                                 Rad etish
                                             </button>
                                         </>
                                     ) : (
-                                        <div className="flex-1 p-4 rounded-[24px] bg-white/5 flex items-center justify-center gap-4">
+                                        <div className="flex-1 p-4 rounded-3xl bg-white/5 flex items-center justify-center gap-4">
                                             <span className={`font-bold uppercase tracking-widest text-sm ${exp.verified_status === 'approved' ? 'text-emerald-400' : 'text-red-400'}`}>
                                                 Status: {exp.verified_status === 'approved' ? 'Tasdiqlangan' : 'Rad etilgan'}
                                             </span>
-                                            <button onClick={() => handleVerifyExpert(exp.id, exp.verified_status === 'approved' ? 'rejected' : 'approved')} className="text-[10px] px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all">Statusni o'zgartirish</button>
+                                            <button onClick={() => handleVerifyExpert(exp.id, exp.verified_status === 'approved' ? 'rejected' : 'approved')} className="text-[10px] px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all">Statusni o&apos;zgartirish</button>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         ))}
                         {(expertTab === 'pending' ? pendingExperts : verifiedExperts).length === 0 && (
-                            <div className="bg-slate-900/50 p-20 rounded-[40px] border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
+                            <div className="bg-slate-900/50 p-20 rounded-4xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
                                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                 </div>
@@ -624,7 +669,7 @@ export default function AdminPanel() {
                     <div className="space-y-8 animate-fade-in">
                         {/* Add Category Form */}
                         <div className="bg-slate-900 p-8 rounded-[40px] border border-white/5 shadow-2xl">
-                            <h2 className="text-xl font-bold mb-6">Yangi kategoriya qo'shish</h2>
+                            <h2 className="text-xl font-bold mb-6">Yangi kategoriya qo&apos;shish</h2>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
                                     <label className="text-[10px] text-slate-500 font-bold uppercase mb-2 block">Nomi (UZ)</label>
@@ -643,23 +688,23 @@ export default function AdminPanel() {
                                     <input type="number" value={newCategory.price} onChange={e => setNewCategory({ ...newCategory, price: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none" placeholder="100" />
                                 </div>
                             </div>
-                            <button onClick={handleCreateCategory} className="mt-6 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">Qo'shish</button>
+                            <button onClick={handleCreateCategory} className="mt-6 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">Qo&apos;shish</button>
                         </div>
 
                         {/* Category List */}
-                        <div className="bg-slate-900 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl">
+                        <div className="bg-slate-900 rounded-4xl overflow-hidden border border-white/5 shadow-2xl">
                             <table className="w-full text-left">
                                 <thead className="bg-black/20 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
                                     <tr>
                                         <th className="p-6">Ikonka</th>
                                         <th className="p-6">UZ Nomi</th>
                                         <th className="p-6">RU Nomi</th>
-                                        <th className="p-6">E'lon narxi</th>
+                                        <th className="p-6">E&apos;lon narxi</th>
                                         <th className="p-6">Holat</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {jobCategories.map((cat: any) => (
+                                    {jobCategories.map((cat) => (
                                         <tr key={cat.id} className="hover:bg-white/5 transition-all">
                                             <td className="p-6 text-indigo-400 font-bold">{cat.icon}</td>
                                             <td className="p-6 font-bold">{cat.name_uz}</td>
@@ -694,7 +739,7 @@ export default function AdminPanel() {
                                     </h3>
 
                                     <div className="space-y-2">
-                                        <label className="text-sm font-bold text-white/80">Eksperni tasdiqlash to'lovi (MALI)</label>
+                                        <label className="text-sm font-bold text-white/80">Eksperni tasdiqlash to&apos;lovi (MALI)</label>
                                         <div className="flex gap-3">
                                             <input
                                                 type="number"
@@ -705,7 +750,7 @@ export default function AdminPanel() {
                                             />
                                             <div className="bg-white/5 border border-white/5 rounded-2xl flex items-center justify-center px-6 text-slate-500 font-bold">MALI</div>
                                         </div>
-                                        <p className="text-[10px] text-slate-500 italic mt-2 ml-2">Ushbu to'lov foydalanuvchi ekspert sifatida admin tomonidan tasdiqlangan vaqtda uning hamyonidan yechib olinadi.</p>
+                                        <p className="text-[10px] text-slate-500 italic mt-2 ml-2">Ushbu to&apos;lov foydalanuvchi ekspert sifatida admin tomonidan tasdiqlangan vaqtda uning hamyonidan yechib olinadi.</p>
                                     </div>
                                 </div>
 
@@ -718,13 +763,13 @@ export default function AdminPanel() {
                             </div>
                         </div>
 
-                        <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-[32px] flex items-start gap-4">
+                        <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-4xl flex items-start gap-4">
                             <div className="p-3 bg-amber-500/20 rounded-2xl text-amber-500">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                             </div>
                             <div className="space-y-1">
                                 <h4 className="text-amber-500 font-bold uppercase tracking-widest text-xs">Diqqat</h4>
-                                <p className="text-white/60 text-xs leading-relaxed">To'lov miqdorini o'zgartirish faqat yangi arizalarga (yoki hali tasdiqlanmaganlarga) ta'sir qiladi. Avval tasdiqlangan ekspertlardan qayta to'lov undirilmaydi.</p>
+                                <p className="text-white/60 text-xs leading-relaxed">To&apos;lov miqdorini o&apos;zgartirish faqat yangi arizalarga (yoki hali tasdiqlanmaganlarga) ta&apos;sir qiladi. Avval tasdiqlangan ekspertlardan qayta to&apos;lov undirilmaydi.</p>
                             </div>
                         </div>
                     </div>
