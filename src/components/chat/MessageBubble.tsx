@@ -451,15 +451,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
-                                        title="Yuborilmoqda..."
                                     >
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 ) : message.is_read ? (
-                                    <div
-                                        className="flex -space-x-1.5 opacity-90"
-                                        title="Ko'rildi"
-                                    >
+                                    <div className="flex -space-x-1.5 opacity-90">
                                         <svg className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                         </svg>
@@ -473,7 +469,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
-                                        title="Yetkazildi"
                                     >
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                     </svg>
