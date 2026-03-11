@@ -107,6 +107,23 @@ export default function ProfileViewer({
     const [bioExpert, setBioExpert] = useState("");
     const [specialtyDesc, setSpecialtyDesc] = useState("");
     const [resumeUrl, setResumeUrl] = useState("");
+    const [anketaUrl, setAnketaUrl] = useState("");
+
+    // Refs for focusing missing fields
+    const professionRef = useRef<HTMLSelectElement | null>(null);
+    const experienceRef = useRef<HTMLInputElement | null>(null);
+    const priceRef = useRef<HTMLInputElement | null>(null);
+
+    // Field-level error states for visual validation
+    const [expertErrors, setExpertErrors] = useState<{
+        profession?: string;
+        experience?: string;
+        price?: string;
+        selfie?: string;
+        resume?: string;
+        anketa?: string;
+        groups?: string;
+    }>({});
     const [servicesJson, setServicesJson] = useState<any[]>([]);
     const [expertGroups, setExpertGroups] = useState<{ id: string, name: string, time: string, chatId?: string }[]>([]);
     const [newGroupName, setNewGroupName] = useState("");
@@ -125,6 +142,7 @@ export default function ProfileViewer({
     const idRef = useRef<HTMLInputElement>(null);
     const selfieRef = useRef<HTMLInputElement>(null);
     const resumeRef = useRef<HTMLInputElement>(null);
+    const anketaRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         try {
@@ -170,6 +188,7 @@ export default function ProfileViewer({
                 setBioExpert(userToProcess.bio_expert || "");
                 setSpecialtyDesc(userToProcess.specialty_desc || "");
                 setResumeUrl(userToProcess.resume_url || "");
+                setAnketaUrl(userToProcess.anketa_url || "");
                 try {
                     setServicesJson(userToProcess.services_json ? (typeof userToProcess.services_json === 'string' ? JSON.parse(userToProcess.services_json) : userToProcess.services_json) : []);
                 } catch { setServicesJson([]); }
@@ -262,13 +281,56 @@ export default function ProfileViewer({
     };
 
     const handleSaveExpertData = async () => {
+        setExpertErrors({});
+        // Step-by-step required field checks with focus/scroll
         if (!profession) {
-            setToast({ type: 'warning', message: "Iltimos, avval kasb turini tanlang." });
+            setToast({ type: 'warning', message: "Kasb maydonini to'ldiring." });
+            setExpertErrors(prev => ({ ...prev, profession: "Kasbni tanlash majburiy." }));
+            professionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            professionRef.current?.focus();
+            return;
+        }
+
+        if (!experience || experience <= 0) {
+            setToast({ type: 'warning', message: "Tajriba (yil) maydonini to'g'ri kiriting." });
+            setExpertErrors(prev => ({ ...prev, experience: "Tajriba 0 dan katta bo'lishi kerak." }));
+            experienceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            experienceRef.current?.focus();
+            return;
+        }
+
+        if (!price || price <= 0) {
+            setToast({ type: 'warning', message: "Soatlik narx (MALI) maydonini to'g'ri kiriting." });
+            setExpertErrors(prev => ({ ...prev, price: "Narx 0 dan katta bo'lishi kerak." }));
+            priceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            priceRef.current?.focus();
+            return;
+        }
+
+        if (!selfieUrl) {
+            setToast({ type: 'warning', message: "Selfie faylini yuklash majburiy." });
+            setExpertErrors(prev => ({ ...prev, selfie: "Selfie yuklash majburiy." }));
+            selfieRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        if (!resumeUrl) {
+            setToast({ type: 'warning', message: "Rezyume (PDF) faylini yuklang." });
+            setExpertErrors(prev => ({ ...prev, resume: "Rezyume (PDF) yuklash majburiy." }));
+            resumeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        if (!anketaUrl) {
+            setToast({ type: 'warning', message: "Anketa faylini yuklash majburiy." });
+            setExpertErrors(prev => ({ ...prev, anketa: "Anketa fayli majburiy." }));
+            anketaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
         if (isMentorProfession(profession) && expertGroups.length === 0) {
             setToast({ type: 'warning', message: "Mentorlar uchun kamida bitta guruh qo'shish majburiy." });
+            setExpertErrors(prev => ({ ...prev, groups: "Mentor uchun kamida bitta guruh qo'shing." }));
             return;
         }
 
@@ -329,6 +391,7 @@ export default function ProfileViewer({
             bio_expert: bioExpert,
             specialty_desc: specialtyDesc,
             resume_url: resumeUrl,
+            anketa_url: anketaUrl,
             services_json: JSON.stringify(servicesJson),
             expert_groups: JSON.stringify(updatedGroups),
             expert_fee_total: expertFee,
@@ -337,7 +400,19 @@ export default function ProfileViewer({
         if (socket) socket.emit('update_profile', payload);
         const newUser = { ...user, ...payload };
         setLocalUser(newUser);
-        localStorage.setItem('user', JSON.stringify(newUser));
+        // Avoid storing large base64 fayllarini localStorage ichida saqlash (quota xatosini oldini olish)
+        const userForStorage: any = { ...newUser };
+        delete userForStorage.diploma_url;
+        delete userForStorage.certificate_url;
+        delete userForStorage.id_url;
+        delete userForStorage.selfie_url;
+        delete userForStorage.resume_url;
+        delete userForStorage.anketa_url;
+        try {
+            localStorage.setItem('user', JSON.stringify(userForStorage));
+        } catch (e) {
+            console.warn('localStorage user quota exceeded, skipping full save', e);
+        }
         setVerifiedStatus('pending');
         setIsExpert(true);
         setShowExpertModal(false);
@@ -356,6 +431,7 @@ export default function ProfileViewer({
             if (key === 'id') setIdUrl(base64);
             if (key === 'selfie') setSelfieUrl(base64);
             if (key === 'resume') setResumeUrl(base64);
+            if (key === 'anketa') setAnketaUrl(base64);
         };
         reader.readAsDataURL(file);
     };
@@ -942,13 +1018,13 @@ export default function ProfileViewer({
             )}
 
             {showExpertModal && (
-                <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-xl px-4 animate-fade-in" onClick={(e) => { e.stopPropagation(); setShowExpertModal(false); }}>
+                <div className="absolute inset-0 z-[110] flex items-center justify-center bg-gradient-to-br from-[#020817]/90 via-[#001f1a]/90 to-[#020817]/90 backdrop-blur-xl px-4 animate-fade-in" onClick={(e) => { e.stopPropagation(); setShowExpertModal(false); }}>
                     <GlassCard
-                        className="w-full max-w-[500px] max-h-[90vh] overflow-y-auto !bg-transparent p-8 rounded-[32px] shadow-2xl border border-white/10 no-scrollbar"
-                        style={{ backgroundColor: `rgba(${bgSettings?.rgb?.r || 18}, ${bgSettings?.rgb?.g || 27}, ${bgSettings?.rgb?.b || 34}, 0.8)` }}
+                        className="w-full max-w-[500px] max-h-[90vh] !bg-gradient-to-br from-[#022c22] via-[#020617] to-[#022c22] p-8 rounded-[32px] shadow-2xl border border-emerald-500/20 flex flex-col"
+                        style={{ backgroundColor: 'rgba(4, 47, 46, 0.92)' }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center justify-between mb-8 flex-shrink-0">
                             <h3 className="text-white font-bold text-2xl flex items-center gap-3">
                                 <Award className="h-8 w-8 text-[#00A884]" />
                                 Mutaxassis Profili
@@ -959,27 +1035,59 @@ export default function ProfileViewer({
                         </div>
 
                         {(verifiedStatus === 'pending' || verifiedStatus === 'approved') && (
-                            <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 ${verifiedStatus === 'pending' ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}>
-                                {verifiedStatus === 'pending' ? <Clock className="h-6 w-6 text-yellow-500" /> : <CheckCircle className="h-6 w-6 text-emerald-500" />}
-                                <div className="flex flex-col">
-                                    <span className={`font-bold text-sm uppercase tracking-wider ${verifiedStatus === 'pending' ? 'text-yellow-500' : 'text-emerald-500'}`}>
-                                        {verifiedStatus === 'pending' ? 'Admin tasdiqlashini kuting' : 'Tasdiqlangan'}
-                                    </span>
-                                    <span className="text-white/60 text-xs mt-0.5">
-                                        {verifiedStatus === 'pending' ? 'Ma\'lumotlaringiz admin tomonidan tekshirilmoqda. Formadagi ma\'lumotlar saqlandi.' : 'Sizning ekspert profilingiz muvaffaqiyatli tasdiqlandi!'}
-                                    </span>
+                            <div className={`mb-6 p-4 rounded-2xl flex flex-col gap-3 ${verifiedStatus === 'pending' ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}>
+                                <div className="flex items-center gap-3">
+                                    {verifiedStatus === 'pending' ? <Clock className="h-6 w-6 text-yellow-500" /> : <CheckCircle className="h-6 w-6 text-emerald-500" />}
+                                    <div className="flex flex-col">
+                                        <span className={`font-bold text-sm uppercase tracking-wider ${verifiedStatus === 'pending' ? 'text-yellow-500' : 'text-emerald-500'}`}>
+                                            {verifiedStatus === 'pending' ? 'Admin tasdiqlashini kuting' : 'Tasdiqlangan'}
+                                        </span>
+                                        <span className="text-white/60 text-xs mt-0.5">
+                                            {verifiedStatus === 'pending' ? 'Ma\'lumotlaringiz admin tomonidan tekshirilmoqda. Formadagi ma\'lumotlar saqlandi.' : 'Sizning ekspert profilingiz muvaffaqiyatli tasdiqlandi!'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-1 text-[9px] text-white/60">
+                                    {[
+                                        { id: 'sent', label: "Yuborildi" },
+                                        { id: 'review', label: "Admin tekshiradi" },
+                                        { id: 'done', label: "Tasdiqlandi" }
+                                    ].map((step, index) => {
+                                        const isActive =
+                                            verifiedStatus === 'pending'
+                                                ? index <= 1
+                                                : verifiedStatus === 'approved'
+                                                    ? index <= 2
+                                                    : index === 0;
+                                        return (
+                                            <div key={step.id} className="flex-1 flex items-center">
+                                                <div className={`w-2.5 h-2.5 rounded-full mr-2 ${isActive ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                                                <span className={`${isActive ? 'text-emerald-100' : 'text-white/30'}`}>{step.label}</span>
+                                                {index < 2 && (
+                                                    <div className={`flex-1 h-px ml-2 ${isActive ? 'bg-emerald-400/60' : 'bg-white/10'}`} />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
 
-                        <div className="space-y-8">
+                        <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-8 pb-6">
                             {/* SECTION 1: BASIC INFO */}
                             <div className="space-y-4">
                                 <h4 className="text-[#00A884] font-bold text-xs uppercase tracking-widest border-b border-white/5 pb-2">Asosiy ma'lumotlar</h4>
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
                                         <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Kasb turi</label>
-                                        <select value={profession} onChange={(e) => setProfession(e.target.value)} className="w-full bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-accent-primary focus:outline-none appearance-none">
+                                        <select
+                                            ref={professionRef}
+                                            value={profession}
+                                            onChange={(e) => setProfession(e.target.value)}
+                                            className={`w-full bg-black/40 backdrop-blur-md shadow-inner rounded-xl py-3.5 px-4 text-white focus:outline-none appearance-none border ${
+                                                expertErrors.profession ? 'border-red-500/70' : 'border-white/10 focus:border-accent-primary'
+                                            }`}
+                                        >
                                             <option value="" className="bg-[#121B22]">Tanlang...</option>
                                             <optgroup label="Ta'lim va Mentorlik" className="bg-[#121B22] text-emerald-400 font-bold">
                                                 <option value="O'qituvchi">O'qituvchi (Mentor)</option>
@@ -1027,6 +1135,9 @@ export default function ProfileViewer({
                                             </optgroup>
                                             <option value="Other" className="bg-[#121B22]">Boshqa</option>
                                         </select>
+                                        {expertErrors.profession && (
+                                            <p className="text-[10px] text-red-400 mt-1 ml-1">{expertErrors.profession}</p>
+                                        )}
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Mutaxassislik yo'nalishi</label>
@@ -1035,7 +1146,18 @@ export default function ProfileViewer({
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Ish tajribasi (yil)</label>
-                                            <input type="number" value={experience || 0} onChange={(e) => setExperience(parseInt(e.target.value) || 0)} className="w-full bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-accent-primary focus:outline-none" />
+                                            <input
+                                                ref={experienceRef}
+                                                type="number"
+                                                value={experience || 0}
+                                                onChange={(e) => setExperience(parseInt(e.target.value) || 0)}
+                                                className={`w-full bg-black/40 backdrop-blur-md shadow-inner rounded-xl py-3.5 px-4 text-white focus:outline-none border ${
+                                                    expertErrors.experience ? 'border-red-500/70' : 'border-white/10 focus:border-accent-primary'
+                                                }`}
+                                            />
+                                            {expertErrors.experience && (
+                                                <p className="text-[10px] text-red-400 mt-1 ml-1">{expertErrors.experience}</p>
+                                            )}
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Diplom bormi?</label>
@@ -1065,33 +1187,54 @@ export default function ProfileViewer({
 
                             {/* SECTION 3: DOCUMENTS */}
                             <div className="space-y-4">
-                                <h4 className="text-[#00A884] font-bold text-xs uppercase tracking-widest border-b border-white/5 pb-2">Hujjatlar (Tasdiqlash uchun)</h4>
+                                <h4 className="text-[#00A884] font-bold text-xs uppercase tracking-widest border-b border-white/5 pb-2">Hujjatlar (majburiy)</h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     {[
-                                        { label: 'Diplom rasmi', key: 'diploma', icon: <FileText className="h-5 w-5" />, ref: diplomaRef, url: diplomaUrl },
-                                        { label: 'Sertifikat', key: 'cert', icon: <Award className="h-5 w-5" />, ref: certRef, url: certificateUrl },
-                                        { label: 'Pasport / ID', key: 'id', icon: <UserCheck className="h-5 w-5" />, ref: idRef, url: idUrl },
-                                        { label: 'Selfie (anti-fake)', key: 'selfie', icon: <Camera className="h-5 w-5" />, ref: selfieRef, url: selfieUrl },
-                                        { label: 'Rezyume (PDF)', key: 'resume', icon: <FileText className="h-5 w-5 text-indigo-400" />, ref: resumeRef, url: resumeUrl, accept: '.pdf' }
+                                        { label: 'Selfie (majburiy)', key: 'selfie', icon: <Camera className="h-5 w-5" />, ref: selfieRef, url: selfieUrl, accept: 'image/*', error: expertErrors.selfie },
+                                        { label: 'Rezyume (PDF, majburiy)', key: 'resume', icon: <FileText className="h-5 w-5 text-indigo-400" />, ref: resumeRef, url: resumeUrl, accept: '.pdf', error: expertErrors.resume },
+                                        { label: 'Anketa (majburiy)', key: 'anketa', icon: <FileText className="h-5 w-5 text-amber-400" />, ref: anketaRef, url: anketaUrl, accept: '.pdf,.doc,.docx,image/*', error: expertErrors.anketa }
                                     ].map((doc) => (
                                         <div key={doc.key} className="relative group">
                                             <button
                                                 onClick={() => doc.ref.current?.click()}
-                                                className={`w - full flex flex - col items - center justify - center p - 4 rounded - 2xl border border - dashed transition - all ${doc.url ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/10 hover:border-accent-primary/50 hover:bg-white/10'} `}
+                                                className={`w-full flex flex-col items-center justify-center p-4 rounded-2xl border border-dashed transition-all ${
+                                                    doc.error
+                                                        ? 'bg-red-500/5 border-red-500/60'
+                                                        : doc.url
+                                                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                            : 'bg-white/5 border-white/10 hover:border-accent-primary/50 hover:bg-white/10'
+                                                }`}
                                             >
-                                                <div className={`p - 3 rounded - full mb - 2 transition - colors ${doc.url ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/30 group-hover:text-[#00A884]'} `}>{doc.icon}</div>
-                                                <span className={`text - [10px] uppercase font - bold ${doc.url ? 'text-emerald-400' : 'text-white/40'} `}>{doc.url ? 'Yuklangan' : doc.label}</span>
+                                                <div className={`p-3 rounded-full mb-2 transition-colors ${
+                                                    doc.error
+                                                        ? 'bg-red-500/20 text-red-400'
+                                                        : doc.url
+                                                            ? 'bg-emerald-500/20 text-emerald-400'
+                                                            : 'bg-white/5 text-white/30 group-hover:text-[#00A884]'
+                                                }`}>{doc.icon}</div>
+                                                <span className={`text-[10px] uppercase font-bold ${
+                                                    doc.error
+                                                        ? 'text-red-400'
+                                                        : doc.url
+                                                            ? 'text-emerald-400'
+                                                            : 'text-white/40'
+                                                }`}>
+                                                    {doc.url ? 'Yuklangan' : doc.label}
+                                                </span>
                                             </button>
                                             <input
                                                 type="file"
                                                 ref={doc.ref as any}
                                                 className="hidden"
-                                                accept={doc.accept || "image/*"}
+                                                accept={doc.accept}
                                                 onChange={(e) => {
                                                     const file = e.target.files?.[0];
                                                     if (file) handleDocumentUpload(doc.key, file);
                                                 }}
                                             />
+                                            {doc.error && (
+                                                <p className="text-[9px] text-red-400 mt-1 text-center">{doc.error}</p>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -1104,7 +1247,18 @@ export default function ProfileViewer({
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">1 soatlik narx</label>
-                                            <input type="number" value={price || 0} onChange={(e) => setPrice(parseInt(e.target.value) || 0)} className="w-full bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-accent-primary focus:outline-none" />
+                                            <input
+                                                ref={priceRef}
+                                                type="number"
+                                                value={price || 0}
+                                                onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
+                                                className={`w-full bg-black/40 backdrop-blur-md shadow-inner rounded-xl py-3.5 px-4 text-white focus:outline-none border ${
+                                                    expertErrors.price ? 'border-red-500/70' : 'border-white/10 focus:border-accent-primary'
+                                                }`}
+                                            />
+                                            {expertErrors.price && (
+                                                <p className="text-[10px] text-red-400 mt-1 ml-1">{expertErrors.price}</p>
+                                            )}
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Valyuta</label>
@@ -1117,13 +1271,31 @@ export default function ProfileViewer({
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Xizmat ko'rsatish tili</label>
-                                        <input value={serviceLanguages} onChange={(e) => setServiceLanguages(e.target.value)} placeholder="Masalan: O'zbek, Rus, Ingliz" className="w-full bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-accent-primary focus:outline-none" />
+                                        <input
+                                            value={serviceLanguages}
+                                            onChange={(e) => setServiceLanguages(e.target.value)}
+                                            placeholder="Masalan: O'zbek, Rus, Ingliz"
+                                            className="w-full bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-accent-primary focus:outline-none"
+                                        />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-white/40 text-[11px] ml-1 uppercase font-bold tracking-wider">Xizmat turi</label>
                                         <div className="flex gap-2">
-                                            {['Online', 'Video', 'Chat'].map(fmt => (
-                                                <button key={fmt} onClick={() => setServiceFormat(fmt)} className={`flex-1 py-3 rounded-lg border transition-all text-[11px] font-bold ${serviceFormat === fmt ? 'bg-accent-primary border-accent-primary text-white' : 'bg-black/40 backdrop-blur-md shadow-inner border-white/10 text-white/30'}`}>{fmt}</button>
+                                            {[
+                                                { key: 'online', label: "Onlayn" },
+                                                { key: 'offline', label: "Oflayn" }
+                                            ].map((fmt) => (
+                                                <button
+                                                    key={fmt.key}
+                                                    onClick={() => setServiceFormat(fmt.key)}
+                                                    className={`flex-1 py-3 rounded-lg border transition-all text-[11px] font-bold ${
+                                                        serviceFormat === fmt.key
+                                                            ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/30'
+                                                            : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-200/70 hover:bg-emerald-500/15'
+                                                    }`}
+                                                >
+                                                    {fmt.label}
+                                                </button>
                                             ))}
                                         </div>
                                     </div>
@@ -1188,36 +1360,35 @@ export default function ProfileViewer({
                             </div>
                         </div>
 
-                        <div
-                            className="sticky bottom-0 pt-4 pb-4 mt-4 flex flex-col gap-3 rounded-2xl"
-                            style={{ backgroundColor: `rgba(${bgSettings?.rgb?.r || 18}, ${bgSettings?.rgb?.g || 27}, ${bgSettings?.rgb?.b || 34}, 0.9)`, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
-                        >
-                            <div className="bg-amber-500/5 border border-amber-500/15 px-3 py-2.5 rounded-xl flex items-start gap-2.5 mb-1 animate-in slide-in-from-bottom duration-300">
-                                <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-400 flex-shrink-0">
+                        <div className="pt-2 mt-2 flex flex-col gap-2 flex-shrink-0">
+                            <div className="px-2 py-1.5 rounded-lg flex items-start gap-2 mb-1 animate-in slide-in-from-bottom duration-300">
+                                <div className="p-1 bg-amber-500/20 rounded-lg text-amber-400 flex-shrink-0">
                                     <Bell className="h-4 w-4" />
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-[0.18em] mb-0.5">
+                                    <p className="text-[9px] font-bold text-amber-400 uppercase tracking-[0.18em] mb-0.5">
                                         Muhim ma&apos;lumot
                                     </p>
-                                    <p className="text-[11px] text-white/75 leading-snug">
+                                    <p className="text-[10px] text-white/75 leading-snug">
                                         Profilingiz admin tomonidan tasdiqlangach, hisobingizdan{" "}
                                         <span className="text-amber-300 font-semibold">{expertFee} MALI</span> avtomatik yechiladi.
                                     </p>
                                 </div>
                             </div>
-                            <GlassButton
-                                onClick={handleSaveExpertData}
-                                className="w-full !bg-gradient-to-r from-[#20A090] to-[#168578] !text-white !rounded-xl py-3 font-bold shadow-lg shadow-[#00A884]/20"
-                            >
-                                Saqlash va tasdiqlashga yuborish
-                            </GlassButton>
-                            <button
-                                onClick={() => setShowExpertModal(false)}
-                                className="w-full py-2.5 text-[13px] text-white/40 hover:text-white transition-colors"
-                            >
-                                Bekor qilish
-                            </button>
+                            <div className="flex flex-col sm:flex-row justify-between gap-2">
+                                <button
+                                    onClick={() => setShowExpertModal(false)}
+                                    className="w-full sm:w-auto sm:flex-1 py-2 text-[12px] text-white/60 hover:text-white transition-colors text-left"
+                                >
+                                    Bekor qilish
+                                </button>
+                                <GlassButton
+                                    onClick={handleSaveExpertData}
+                                    className="w-auto px-5 !bg-emerald-500 hover:!bg-emerald-400 !text-white !rounded-full py-2 text-xs font-semibold shadow-lg shadow-emerald-500/40 ml-auto"
+                                >
+                                    Yuborish
+                                </GlassButton>
+                            </div>
                         </div>
                     </GlassCard >
                 </div >

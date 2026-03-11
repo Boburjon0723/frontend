@@ -123,17 +123,31 @@ export default function AdminPanel() {
     const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoginError('');
+
+        const trimmedPhone = loginPhone.trim();
+        const numericPhone = trimmedPhone.replace(/\D/g, '');
+
+        if (!trimmedPhone || !loginPassword) {
+            setLoginError('Telefon raqam va parolni kiriting.');
+            return;
+        }
+
+        if (numericPhone.length < 9) {
+            setLoginError('Telefon raqamni to‘liq kiriting.');
+            return;
+        }
+
         try {
             const res = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: loginPhone, password: loginPassword })
+                body: JSON.stringify({ phone: trimmedPhone, password: loginPassword })
             });
             const data = await res.json();
 
             if (res.ok) {
-                if (data.user.role !== 'admin') {
-                    setLoginError('This account is not an admin.');
+                if (!data.user || data.user.role !== 'admin') {
+                    setLoginError('Bu akkaunt admin huquqlariga ega emas.');
                     return;
                 }
                 localStorage.setItem('token', data.token);
@@ -141,10 +155,16 @@ export default function AdminPanel() {
                 setAuthorized(true);
                 fetchData(data.token);
             } else {
-                setLoginError(data.message || 'Login failed');
+                if (res.status === 401) {
+                    setLoginError('Telefon raqam yoki parol noto‘g‘ri.');
+                } else if (res.status === 403) {
+                    setLoginError('Bu akkaunt uchun admin panelga kirish taqiqlangan.');
+                } else {
+                    setLoginError(data.message || 'Kirishda xatolik yuz berdi.');
+                }
             }
         } catch {
-            setLoginError('Connection error');
+            setLoginError('Serverga ulanishda xatolik. Internetni tekshirib qayta urinib ko‘ring.');
         }
     };
 
@@ -240,27 +260,53 @@ export default function AdminPanel() {
     };
 
     const handleCreateCategory = async () => {
+        const trimmedUz = newCategory.name_uz.trim();
+        const trimmedRu = newCategory.name_ru.trim();
+        const trimmedPrice = newCategory.price.trim();
+
+        if (!trimmedUz || !trimmedRu || !trimmedPrice) {
+            alert('Nomi (UZ), Nomi (RU) va Narxi maydonlari majburiy.');
+            return;
+        }
+
+        const priceNumber = Number(trimmedPrice);
+        if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
+            alert('Narx musbat son bo‘lishi kerak.');
+            return;
+        }
+
         const token = localStorage.getItem('token');
         try {
             const res = await fetch(`${API_URL}/api/jobs/categories`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
-                    name_uz: newCategory.name_uz,
-                    name_ru: newCategory.name_ru,
-                    icon: newCategory.icon,
-                    publication_price_mali: newCategory.price
+                    name_uz: trimmedUz,
+                    name_ru: trimmedRu,
+                    icon: newCategory.icon || 'Briefcase',
+                    publication_price_mali: String(priceNumber)
                 })
             });
             if (res.ok) {
                 alert('Kategoriya qo\'shildi!');
                 setNewCategory({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
                 fetchData(token!);
+            } else {
+                const err = await res.json();
+                alert(err.message || 'Kategoriya qo‘shishda xatolik yuz berdi.');
             }
-        } catch { alert('Xato'); }
+        } catch {
+            alert('Server bilan aloqa qilishda xatolik yuz berdi.');
+        }
     };
 
     const handleUpdateSettings = async () => {
+        const fee = platformSettings.expert_verification_fee;
+        if (!Number.isFinite(fee) || fee <= 0 || fee > 1_000_000) {
+            alert('Ekspertni tasdiqlash to‘lovi 0 dan katta va 1 000 000 dan kichik bo‘lishi kerak.');
+            return;
+        }
+
         const token = localStorage.getItem('token');
         try {
             const res = await fetch(`${API_URL}/api/admin/settings`, {
@@ -273,7 +319,9 @@ export default function AdminPanel() {
             } else {
                 alert('Xato yuz berdi (Endpoint mavjud emas bo\'lishi mumkin)');
             }
-        } catch { alert('Xato'); }
+        } catch {
+            alert('Xato');
+        }
     };
 
     const ImageModal = () => (

@@ -59,6 +59,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     // Search & Calling
     const [searchQuery, setSearchQuery] = useState("");
     const [showSearch, setShowSearch] = useState(false);
+    const [searchType, setSearchType] = useState<'all' | 'text' | 'media' | 'files'>('all');
+    const [searchDateFrom, setSearchDateFrom] = useState<string>("");
+    const [searchDateTo, setSearchDateTo] = useState<string>("");
     const [isIncomingCall, setIsIncomingCall] = useState(false);
     const [isCalling, setIsCalling] = useState(false);
     const [callData, setCallData] = useState<any>(null);
@@ -70,6 +73,10 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [callType, setCallType] = useState<'audio' | 'video'>('audio');
     const [showScrollButton, setShowScrollButton] = useState(false);
+    const [isAtBottom, setIsAtBottom] = useState(true);
+    const [showPreCallModal, setShowPreCallModal] = useState(false);
+    const [pendingCallType, setPendingCallType] = useState<'audio' | 'video'>('audio');
+    const [lowBandwidth, setLowBandwidth] = useState(false);
 
     // WebRTC Real-time Video
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -146,6 +153,35 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             }
         } catch (e) {
             console.error(e);
+        }
+    };
+
+    const handleReactMessage = (msg: any, emoji: string) => {
+        try {
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const userId = currentUser?.id;
+            if (!userId) return;
+
+            setMessages(prev =>
+                prev.map(m => {
+                    if (m.id !== msg.id) return m;
+                    const reactions = m.reactions || {};
+                    const existing = reactions[emoji]?.users || [];
+                    const hasReacted = existing.includes(userId);
+                    const updatedUsers = hasReacted
+                        ? existing.filter((id: string) => id !== userId)
+                        : [...existing, userId];
+                    return {
+                        ...m,
+                        reactions: {
+                            ...reactions,
+                            [emoji]: { emoji, users: updatedUsers }
+                        }
+                    };
+                })
+            );
+        } catch {
+            // ignore reaction errors
         }
     };
 
@@ -516,14 +552,17 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         }
     };
 
-    const handleCall = async () => {
+    const handleCall = async (typeOverride?: 'audio' | 'video') => {
         if (!socket || !chat) return;
         const targetUserId = String(chat.otherUser?.id || chat.userId || chat.id);
         const myName = JSON.parse(localStorage.getItem('user') || '{}').name || "User";
 
+        const selectedType = typeOverride || callType;
+        const finalType: 'audio' | 'video' = lowBandwidth ? 'audio' : selectedType;
+        setCallType(finalType);
         setIsCalling(true);
 
-        if (callType === 'video') {
+        if (finalType === 'video') {
             // LiveKit handles media itself
             socket.emit('call_user', {
                 targetUserId,
@@ -558,7 +597,10 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         setIsCalling(true);
         startCallTimer();
 
-        if (callType === 'video') {
+        const finalType: 'audio' | 'video' = lowBandwidth ? 'audio' : callType;
+        setCallType(finalType);
+
+        if (finalType === 'video') {
             socket.emit('accept_call', { to: callData.from, signal: { type: 'livekit' } });
             return;
         }
@@ -614,6 +656,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         }
         setRemoteStream(null);
         pendingCandidatesRef.current = [];
+        setIsMuted(false);
+        setLowBandwidth(false);
     };
 
     useEffect(() => {
@@ -635,16 +679,36 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
         messagesEndRef.current?.scrollIntoView({ behavior });
         setShowScrollButton(false);
+        setIsAtBottom(true);
     };
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop === e.currentTarget.clientHeight;
-        setShowScrollButton(!bottom && e.currentTarget.scrollTop < e.currentTarget.scrollHeight - 300);
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        const bottom = scrollHeight - scrollTop - clientHeight < 10;
+        setIsAtBottom(bottom);
+        setShowScrollButton(!bottom && scrollTop < scrollHeight - 300);
     };
 
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+        // Faqat pastda bo'lsak yoki yangi xabarni o'zimiz yuborgan bo'lsak avtomatik skroll
+        const lastMsg = messages[messages.length - 1];
+        const isOwn = lastMsg && (lastMsg.sender === 'me' || lastMsg.isOwn);
+        if (isAtBottom || isOwn) {
+            scrollToBottom(isOwn ? 'smooth' : 'auto');
+        }
+    }, [messages, isAtBottom]);
+
+    const toggleMute = () => {
+        setIsMuted(prev => {
+            const next = !prev;
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = !next;
+                });
+            }
+            return next;
+        });
+    };
 
     const [isSomeoneTyping, setIsSomeoneTyping] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -728,7 +792,11 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         id: m.id,
                         text: m.content,
                         sender: String(m.sender_id) === String(user.id) ? 'me' : 'them',
-                        time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        time: new Date(m.created_at).toLocaleTimeString('uz-UZ', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        }),
                         type: m.type || 'text',
                         metadata: m.metadata,
                         is_read: m.is_read
@@ -750,7 +818,11 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                     id: message.id,
                     text: message.content,
                     sender: String(senderId) === String(user.id) ? 'me' : 'them',
-                    time: new Date(message.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    time: new Date(message.created_at || Date.now()).toLocaleTimeString('uz-UZ', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }),
                     type: message.type || 'text',
                     clientSideId: message.clientSideId,
                     metadata: message.metadata,
@@ -794,7 +866,11 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
             id: clientSideId,
             text: inputContent,
             sender: 'me',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: new Date().toLocaleTimeString('uz-UZ', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }),
             type: 'text',
             parentId: currentReplyTo?.id,
             parentMessage: currentReplyTo,
@@ -976,9 +1052,33 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
         }
     };
 
-    const filteredMessages = searchQuery.trim()
-        ? messages.filter(m => (m.text || "").toLowerCase().includes(searchQuery.toLowerCase()))
-        : messages;
+    const filteredMessages = messages.filter(m => {
+        // Text search
+        if (searchQuery.trim()) {
+            const text = (m.text || "").toLowerCase();
+            if (!text.includes(searchQuery.toLowerCase())) return false;
+        }
+
+        // Type filter
+        if (searchType === 'text' && m.type !== 'text') return false;
+        if (searchType === 'media' && !['image', 'video', 'voice'].includes(m.type)) return false;
+        if (searchType === 'files' && m.type !== 'file') return false;
+
+        // Date filter
+        const created = new Date(m.created_at || m.createdAt || m.timestamp || m.time || Date.now());
+        if (searchDateFrom) {
+            const from = new Date(searchDateFrom);
+            from.setHours(0, 0, 0, 0);
+            if (created < from) return false;
+        }
+        if (searchDateTo) {
+            const to = new Date(searchDateTo);
+            to.setHours(23, 59, 59, 999);
+            if (created > to) return false;
+        }
+
+        return true;
+    });
 
     useEffect(() => {
         (window as any).currentSearchQuery = searchQuery;
@@ -1060,13 +1160,39 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
 
                         <div className="flex items-center gap-1 sm:gap-2">
                             {showSearch && (
-                                <input
-                                    autoFocus
-                                    className="bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs text-white outline-none animate-scale-in hidden md:block w-48"
-                                    placeholder="Xabarlardan qidirish..."
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                />
+                                <div className="hidden md:flex items-center gap-2 animate-scale-in">
+                                    <input
+                                        autoFocus
+                                        className="bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs text-white outline-none w-40"
+                                        placeholder="Matn bo'yicha qidirish..."
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                    />
+                                    <select
+                                        className="bg-white/5 border border-white/10 rounded-full px-2 py-1 text-[11px] text-white outline-none"
+                                        value={searchType}
+                                        onChange={e => setSearchType(e.target.value as any)}
+                                    >
+                                        <option value="all">Hammasi</option>
+                                        <option value="text">Matn</option>
+                                        <option value="media">Media</option>
+                                        <option value="files">Fayllar</option>
+                                    </select>
+                                    <input
+                                        type="date"
+                                        className="bg-white/5 border border-white/10 rounded-full px-2 py-1 text-[11px] text-white outline-none"
+                                        value={searchDateFrom}
+                                        onChange={e => setSearchDateFrom(e.target.value)}
+                                        title="Boshlanish sana"
+                                    />
+                                    <input
+                                        type="date"
+                                        className="bg-white/5 border border-white/10 rounded-full px-2 py-1 text-[11px] text-white outline-none"
+                                        value={searchDateTo}
+                                        onChange={e => setSearchDateTo(e.target.value)}
+                                        title="Tugash sana"
+                                    />
+                                </div>
                             )}
                             <button
                                 onClick={() => setShowSearch(!showSearch)}
@@ -1095,14 +1221,20 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                             {!isTrade && (
                                 <div className="flex items-center gap-1">
                                     <button
-                                        onClick={() => { setCallType('audio'); setTimeout(() => handleCall(), 0); }}
+                                        onClick={() => {
+                                            setPendingCallType('audio');
+                                            setShowPreCallModal(true);
+                                        }}
                                         className="p-2 text-white/60 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
                                         title="Ovozli chaqiruv"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                     </button>
                                     <button
-                                        onClick={() => { setCallType('video'); setTimeout(() => handleCall(), 0); }}
+                                        onClick={() => {
+                                            setPendingCallType('video');
+                                            setShowPreCallModal(true);
+                                        }}
                                         className="p-2 text-white/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
                                         title="Videochaqiruv"
                                     >
@@ -1248,7 +1380,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
 
             {/* Messages Area */}
             <div
-                className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative ${isDragging ? 'bg-blue-500/10' : ''}`}
+                className={`flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 custom-scrollbar relative ${isDragging ? 'bg-blue-500/10' : ''}`}
                 onScroll={handleScroll}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -1269,32 +1401,75 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                     const isContinuation = prevMsg &&
                         String(prevMsg.sender_id || prevMsg.senderId) === String(msg.sender_id || msg.senderId) &&
                         (new Date(msg.created_at || Date.now()).getTime() - new Date(prevMsg.created_at || Date.now()).getTime() < 300000); // 5 minutes
+                    const msgDate = new Date(msg.created_at || msg.createdAt || msg.timestamp || Date.now());
+                    const prevDate = prevMsg ? new Date(prevMsg.created_at || prevMsg.createdAt || prevMsg.timestamp || Date.now()) : null;
+                    const isNewDay = !prevDate || msgDate.toDateString() !== prevDate.toDateString();
+
+                    const formatDateLabel = (d: Date) => {
+                        const today = new Date();
+                        const yesterday = new Date();
+                        yesterday.setDate(today.getDate() - 1);
+                        if (d.toDateString() === today.toDateString()) return "Bugun";
+                        if (d.toDateString() === yesterday.toDateString()) return "Kecha";
+                        return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' });
+                    };
 
                     return (
-                        <div key={msg.id || i} ref={(node) => observeMessage(node, msg)}>
-                            <MessageBubble
-                                message={{ ...msg, timestamp: msg.time, isOwn: msg.sender === 'me' }}
-                                onReply={setReplyTo}
-                                isSelecting={isSelecting}
-                                isSelected={selectedMessageIds.includes(msg.id)}
-                                onSelect={() => toggleSelection(msg.id)}
-                                uploadProgress={uploadProgresses[msg.id]}
-                                onMediaClick={(url, type) => setViewerMedia({ url, type })}
-                                onForward={handleForwardMessage}
-                                onDelete={handleDeleteMessage}
-                                isContinuation={isContinuation}
-                                onReplyClick={handleReplyClick}
-                                activeAudioId={activeAudioId}
-                                onAudioPlay={setActiveAudioId}
-                            />
-                        </div>
+                        <React.Fragment key={msg.id || i}>
+                            {isNewDay && (
+                                <div className="flex items-center justify-center my-4">
+                                    <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/50">
+                                        {formatDateLabel(msgDate)}
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={(node) => observeMessage(node, msg)}>
+                                <MessageBubble
+                                    message={{ ...msg, timestamp: msg.time, isOwn: msg.sender === 'me' }}
+                                    onReply={setReplyTo}
+                                    isSelecting={isSelecting}
+                                    isSelected={selectedMessageIds.includes(msg.id)}
+                                    onSelect={() => toggleSelection(msg.id)}
+                                    uploadProgress={uploadProgresses[msg.id]}
+                                    onMediaClick={(url, type) => setViewerMedia({ url, type })}
+                                    onForward={handleForwardMessage}
+                                    onDelete={handleDeleteMessage}
+                                    isContinuation={isContinuation}
+                                    onReplyClick={handleReplyClick}
+                                    activeAudioId={activeAudioId}
+                                    onAudioPlay={setActiveAudioId}
+                                    onReact={(emoji) => handleReactMessage(msg, emoji)}
+                                />
+                            </div>
+                        </React.Fragment>
                     );
                 })}
                 <div ref={messagesEndRef} />
             </div>
 
+            {/* Floating scroll-to-bottom button */}
+            {showScrollButton && (
+                <button
+                    onClick={() => scrollToBottom('smooth')}
+                    className="fixed bottom-24 right-5 z-[120] flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-semibold shadow-xl shadow-emerald-500/40 hover:bg-emerald-400 active:scale-95 transition-all"
+                >
+                    <span className="w-2 h-2 rounded-full bg-white/90 animate-ping" />
+                    <span>Yangi xabarlar</span>
+                </button>
+            )}
+
             {/* Input Area */}
             <div className="p-4 pt-0 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
+                {isSomeoneTyping && (
+                    <div className="flex items-center gap-2 px-1 pb-1 text-[11px] text-white/60">
+                        <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80 animate-bounce" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/60 animate-bounce [animation-delay:120ms]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/40 animate-bounce [animation-delay:240ms]" />
+                        </div>
+                        <span>Yozmoqda...</span>
+                    </div>
+                )}
                 <GlassCard className="flex items-center gap-2 !p-2 border border-white/10 !bg-black/20">
                     <input type="file" ref={fileInputRef} className="hidden" multiple accept="*" onChange={handleFileUpload} />
                     <input type="file" ref={folderInputRef} className="hidden" multiple {...({ webkitdirectory: "" } as any)} onChange={(e) => handleFileUpload(e, true)} />
@@ -1494,10 +1669,17 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                     </div>
 
                                     <div className="flex flex-col items-center gap-2">
-                                        <button className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-105 active:scale-95 bg-white/10 hover:bg-white/20 border border-white/10`}>
+                                        <button
+                                            onClick={toggleMute}
+                                            className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-105 active:scale-95 ${
+                                                isMuted ? 'bg-red-500/80 border-red-400 shadow-red-500/40' : 'bg-white/10 hover:bg-white/20 border border-white/10'
+                                            }`}
+                                        >
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                                         </button>
-                                        <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Ovozsiz</span>
+                                        <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">
+                                            {isMuted ? 'Mikrofon OFF' : 'Mikrofon ON'}
+                                        </span>
                                     </div>
                                 </div>
                             )}
@@ -1512,6 +1694,89 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                     onClose={() => setPendingFiles([])}
                     onSend={handleConfirmUpload}
                 />
+            )}
+
+            {/* Pre-call modal */}
+            {showPreCallModal && (
+                <div className="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4">
+                    <div className="w-full max-w-md glass-premium border border-white/10 rounded-3xl p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-white">
+                                {pendingCallType === 'video' ? 'Video chaqiruv' : 'Ovozli chaqiruv'}
+                            </h2>
+                            <button
+                                onClick={() => setShowPreCallModal(false)}
+                                className="p-1.5 rounded-full bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-white/60 leading-relaxed">
+                            Qo‘ng‘iroqni boshlashdan oldin qurilmangiz tayyor ekanini tekshiring. Past tezlik rejimini yoqsangiz,
+                            hatto internet sekin bo‘lsa ham aloqa barqarorroq bo‘ladi.
+                        </p>
+
+                        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 font-bold">
+                                {(displayName || 'U')[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm text-white font-semibold truncate">{displayName}</p>
+                                <p className="text-[11px] text-white/40 uppercase tracking-widest">
+                                    {pendingCallType === 'video' ? 'Video' : 'Audio'} qo‘ng‘iroq
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl px-4 py-3">
+                            <div>
+                                <p className="text-sm text-white font-semibold">Past tezlik rejimi</p>
+                                <p className="text-[11px] text-white/40">
+                                    Sezilarli kechikish bo‘lsa, faqat audio rejimga o‘tadi.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setLowBandwidth(prev => !prev)}
+                                className={`w-11 h-6 rounded-full flex items-center px-1 transition-all ${
+                                    lowBandwidth ? 'bg-emerald-500' : 'bg-white/20'
+                                }`}
+                            >
+                                <span
+                                    className={`w-4 h-4 rounded-full bg-white shadow transform transition-transform ${
+                                        lowBandwidth ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+
+                        {pendingCallType === 'video' && lowBandwidth && (
+                            <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-400/40 rounded-2xl px-3 py-2">
+                                Past tezlik rejimi yoqilganligi sababli bu qo‘ng‘iroq <span className="font-semibold">audio</span> sifatida boshlanadi.
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setShowPreCallModal(false)}
+                                className="px-4 py-2 rounded-full text-xs font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10"
+                            >
+                                Bekor qilish
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setShowPreCallModal(false);
+                                    await handleCall(pendingCallType);
+                                }}
+                                className="px-5 py-2 rounded-full text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/40"
+                            >
+                                Boshlash
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {isUploadingMedia && (

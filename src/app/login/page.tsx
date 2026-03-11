@@ -75,9 +75,15 @@ function Login() {
         }
         router.push("/messages");
       } else {
-        setError(
-          data.message || "Telefon raqam yoki parol noto'g'ri. Qayta urinib ko'ring."
-        );
+        if (res.status === 401) {
+          setError("Telefon raqam yoki parol noto'g'ri. Qayta urinib ko'ring.");
+        } else if (res.status === 403) {
+          setError("Sizning akkauntingiz bloklangan yoki faollashtirilmagan.");
+        } else {
+          setError(
+            data.message || "Kirishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring."
+          );
+        }
       }
     } catch (err) {
       console.error("Login error:", err);

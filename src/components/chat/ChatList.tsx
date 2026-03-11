@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import JobsPanel from '../jobs/JobsPanel';
 import { useSocket } from '@/context/SocketContext';
@@ -142,8 +142,46 @@ export default function ChatList({
 }: ChatListProps) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
+
+    // Swipe navigation (mobile) between categories
+    const touchStartX = useRef<number | null>(null);
+    const touchStartY = useRef<number | null>(null);
+
     const handleCategoryChange = (catId: string) => {
         if (onCategoryChange) onCategoryChange(catId);
+    };
+
+    const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        const touch = e.touches[0];
+        touchStartX.current = touch.clientX;
+        touchStartY.current = touch.clientY;
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (touchStartX.current === null || touchStartY.current === null) return;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - touchStartX.current;
+        const dy = touch.clientY - touchStartY.current;
+        touchStartX.current = null;
+        touchStartY.current = null;
+
+        // Only react to gorizontal, yetarli uzun swipe
+        if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+
+        const currentIndex = CATEGORIES.findIndex(c => c.id === activeCategory);
+        if (currentIndex === -1) return;
+
+        let nextIndex = currentIndex;
+        if (dx < 0) {
+            // Chapga swipe → keyingi kategoriya
+            nextIndex = Math.min(CATEGORIES.length - 1, currentIndex + 1);
+        } else if (dx > 0) {
+            // O'ngga swipe → oldingi kategoriya
+            nextIndex = Math.max(0, currentIndex - 1);
+        }
+        if (nextIndex !== currentIndex) {
+            handleCategoryChange(CATEGORIES[nextIndex].id);
+        }
     };
 
     // FILTER CHATS
@@ -173,11 +211,11 @@ export default function ChatList({
     };
 
     return (
-        <div className={`h-full flex flex-col relative overflow-hidden select-none animate-fade-in glass-premium rounded-3xl border border-white/10 ${className || ''}`}>
+        <div className={`h-full flex flex-col relative overflow-hidden select-none animate-fade-in rounded-3xl ${className || ''}`}>
             {/* iOS Style Sidebar Drawer */}
 
             {/* Sticky Header / Search / Categories Container */}
-            <div className={`sticky top-0 z-20 backdrop-blur-xl border-b border-white/5 ${(hideHeader && hideCategories) ? 'hidden lg:block' : 'block'}`}>
+            <div className={`sticky top-0 z-20 backdrop-blur-xl border-b border-white/5 bg-white/15 ${(hideHeader && hideCategories) ? 'hidden lg:block' : 'block'}`}>
                 {/* Header / Search部 */}
                 <div className={`p-4 flex-col gap-4 ${hideHeader ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'}`}>
                     <div className="flex items-center justify-between">
@@ -250,7 +288,11 @@ export default function ChatList({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 space-y-3 custom-scrollbar">
+            <div
+                className="flex-1 overflow-y-auto px-3 space-y-3 custom-scrollbar"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+            >
                 {loading ? (
                     <div className="pt-3 space-y-3">
                         {Array.from({ length: 6 }).map((_, idx) => (
@@ -340,8 +382,13 @@ export default function ChatList({
                 )}
             </div>
 
-            <button onClick={() => setShowContactModal(true)} className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-[var(--accent-purple-start)] to-[var(--accent-purple-end)] rounded-full shadow-[0_0_20px_rgba(124,77,255,0.4)] flex items-center justify-center text-white hover:scale-110 transition-transform z-30">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <button
+                onClick={() => setShowContactModal(true)}
+                className="fixed bottom-20 right-5 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_10px_30px_rgba(16,185,129,0.45)] flex items-center justify-center transition-transform active:scale-95 z-30"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-7 sm:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
             </button>
         </div >
     );

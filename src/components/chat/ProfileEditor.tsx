@@ -36,6 +36,8 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
     const [hours, setHours] = useState("");
     const [languages, setLanguages] = useState("");
 
+    const [error, setError] = useState<string | null>(null);
+
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -84,6 +86,44 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
     }, [socket, onSave]);
 
     const handleSave = async () => {
+        setError(null);
+
+        if (!name.trim()) {
+            setError("Ismingizni kiritish majburiy.");
+            return;
+        }
+
+        if (!username.trim()) {
+            setError("Username kiritish majburiy.");
+            return;
+        }
+
+        if (isExpert) {
+            if (!profession.trim()) {
+                setError("Ekspert sifatida kasbingizni (Profession) kiritish majburiy.");
+                return;
+            }
+            if (!specialization.trim()) {
+                setError("Ekspert yo'nalishlaringizni (Specialization) kiritish majburiy.");
+                return;
+            }
+            if (!languages.trim()) {
+                setError("Qaysi tillarda xizmat ko'rsatishingizni (Languages) kiritish majburiy.");
+                return;
+            }
+            if (!hours.trim()) {
+                setError("Ish vaqtingizni (Working Hours) ko'rsatish majburiy.");
+                return;
+            }
+            if (!Number.isFinite(experience) || experience <= 0) {
+                setError("Ekspert tajribasi (Experience) 0 dan katta bo'lishi kerak.");
+                return;
+            }
+            if (!Number.isFinite(price) || price <= 0) {
+                setError("Soatlik narx (Price) 0 dan katta bo'lishi kerak.");
+                return;
+            }
+        }
         // Strip @ from username if present
         const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
 
@@ -145,9 +185,12 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md" onClick={onClose}>
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-3 sm:px-0"
+            onClick={onClose}
+        >
             <GlassCard
-                className="w-full max-w-md !p-0 overflow-hidden relative shadow-2xl animate-scale-in z-10 border border-white/10 flex flex-col max-h-[90vh] rounded-[30px]"
+                className="w-full max-w-sm sm:max-w-md !p-0 overflow-hidden relative shadow-2xl animate-scale-in z-10 border border-white/10 flex flex-col max-h-[90vh] rounded-[24px] sm:rounded-[30px]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -158,7 +201,13 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                 </div>
 
                 {/* Scrollable Content */}
-                <div className="overflow-y-auto custom-scrollbar flex-1 p-5 pb-8 space-y-6">
+                <div className="overflow-y-auto custom-scrollbar flex-1 p-4 sm:p-5 pb-8 space-y-5 sm:space-y-6">
+
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs px-3 py-2 rounded-xl">
+                            {error}
+                        </div>
+                    )}
 
                     {/* Avatar Section */}
                     <div className="flex flex-col items-center">
@@ -191,7 +240,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                     </div>
 
                     {/* Section: Basic Info */}
-                    <div className="space-y-4">
+                    <div className="space-y-4 sm:space-y-5">
                         <div className="space-y-1">
                             <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Display Name</label>
                             <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors" placeholder="Your Name" />
@@ -216,7 +265,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                             <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Bio</label>
                             <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none transition-colors resize-none" placeholder="Tell us about yourself..." />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-1">
                                 <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Viloyat</label>
                                 <select
@@ -247,61 +296,108 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                         </div>
                     </div>
 
-                    {/* Section: Expert Mode Toggle */}
-                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between">
-                        <div>
-                            <h3 className="text-white font-bold">Expert Mode</h3>
-                            <p className="text-[#94a3b8] text-xs">Offer services and display professional details</p>
+                    {/* Section: Expert Mode Toggle + Form */}
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-3 sm:p-4 space-y-3 sm:space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-white font-semibold text-sm sm:text-base">Ekspert rejimi</h3>
+                                <p className="text-[#94a3b8] text-[11px] sm:text-xs">
+                                    Pullik maslahat berish uchun professional ma&apos;lumotlaringizni kiriting.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsExpert(!isExpert)}
+                                className={`w-11 h-6 sm:w-12 sm:h-7 rounded-full transition-colors relative ${isExpert ? 'bg-green-500' : 'bg-white/10'}`}
+                            >
+                                <div className={`w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full absolute top-1 transition-transform ${isExpert ? 'left-6' : 'left-1'}`}></div>
+                            </button>
                         </div>
-                        <button
-                            onClick={() => setIsExpert(!isExpert)}
-                            className={`w-12 h-7 rounded-full transition-colors relative ${isExpert ? 'bg-green-500' : 'bg-white/10'}`}
-                        >
-                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${isExpert ? 'left-6' : 'left-1'}`}></div>
-                        </button>
+
+                        {isExpert && (
+                            <div className="space-y-4 animate-fade-in-up border-t border-white/10 pt-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[#94a3b8] text-[11px] sm:text-xs font-semibold ml-1">
+                                            Kasb (majburiy)
+                                        </label>
+                                        <input
+                                            value={profession}
+                                            onChange={(e) => setProfession(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white focus:border-[#3b82f6] focus:outline-none text-sm"
+                                            placeholder="Masalan: Huquqshunos, Psixolog"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[#94a3b8] text-[11px] sm:text-xs font-semibold ml-1">
+                                            Tajriba (yil, majburiy)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={experience}
+                                            onChange={(e) => setExperience(parseInt(e.target.value) || 0)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white focus:border-[#3b82f6] focus:outline-none text-sm"
+                                            placeholder="Masalan: 3"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[#94a3b8] text-[11px] sm:text-xs font-semibold ml-1">
+                                        Asosiy yo&apos;nalishlar (majburiy)
+                                    </label>
+                                    <input
+                                        value={specialization}
+                                        onChange={(e) => setSpecialization(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white focus:border-[#3b82f6] focus:outline-none text-sm"
+                                        placeholder="Masalan: Oilaviy huquq, Moliyaviy maslahat"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[#94a3b8] text-[11px] sm:text-xs font-semibold ml-1">
+                                            Narx (MALI/soat, majburiy)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={price}
+                                            onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white focus:border-[#3b82f6] focus:outline-none text-sm"
+                                            placeholder="Masalan: 120"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[#94a3b8] text-[11px] sm:text-xs font-semibold ml-1">
+                                            Ish vaqti (majburiy)
+                                        </label>
+                                        <input
+                                            value={hours}
+                                            onChange={(e) => setHours(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white focus:border-[#3b82f6] focus:outline-none text-sm"
+                                            placeholder="Masalan: 09:00 - 18:00"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[#94a3b8] text-[11px] sm:text-xs font-semibold ml-1">
+                                        Tillar (majburiy)
+                                    </label>
+                                    <input
+                                        value={languages}
+                                        onChange={(e) => setLanguages(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white focus:border-[#3b82f6] focus:outline-none text-sm"
+                                        placeholder="Masalan: O&apos;zbek, Rus, Ingliz"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
-
-                    {/* Expert Fields (Conditional) */}
-                    {isExpert && (
-                        <div className="space-y-4 animate-fade-in-up border-t border-white/10 pt-4">
-                            <h3 className="text-blue-400 font-bold text-sm uppercase tracking-wider">Expert Details</h3>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Profession</label>
-                                    <input value={profession} onChange={(e) => setProfession(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. Lawyer" />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Experience (Yrs)</label>
-                                    <input type="number" value={experience} onChange={(e) => setExperience(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" />
-                                </div>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Specialization</label>
-                                <input value={specialization} onChange={(e) => setSpecialization(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. Criminal Law, Family Law (comma separated)" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Price (MALI/hr)</label>
-                                    <input type="number" value={price} onChange={(e) => setPrice(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Working Hours</label>
-                                    <input value={hours} onChange={(e) => setHours(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. 9AM - 6PM" />
-                                </div>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-[#94a3b8] text-xs uppercase font-bold tracking-wider ml-1">Languages</label>
-                                <input value={languages} onChange={(e) => setLanguages(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#3b82f6] focus:outline-none" placeholder="e.g. English, Uzbek, Russian" />
-                            </div>
-                        </div>
-                    )}
                 </div>
             </GlassCard>
         </div>
     );
 }
+
+
 

@@ -23,6 +23,9 @@ interface Message {
     parentId?: string;
     isPending?: boolean;
     is_read?: boolean;
+    reactions?: {
+        [emoji: string]: { emoji: string; users: string[] };
+    };
 }
 
 interface MessageBubbleProps {
@@ -39,12 +42,13 @@ interface MessageBubbleProps {
     onReplyClick?: (parentId: string) => void;
     activeAudioId?: string | null;
     onAudioPlay?: (id: string | null) => void;
+    onReact?: (emoji: string) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
     message, onReply, isSelecting, isSelected, onSelect,
     uploadProgress, onMediaClick, onForward, onDelete,
-    isContinuation, onReplyClick, activeAudioId, onAudioPlay
+    isContinuation, onReplyClick, activeAudioId, onAudioPlay, onReact
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
@@ -129,16 +133,56 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
 
     const renderText = () => {
-        const query = (window as any).currentSearchQuery || "";
-        if (!query || message.type !== 'text') return message.text;
-        const parts = message.text.split(new RegExp(`(${query})`, 'gi'));
+        const text = message.text || "";
+        const query = (typeof window !== 'undefined' ? (window as any).currentSearchQuery : "") || "";
+
+        // Helper: highlight search query inside normal text (non-URL)
+        const highlightQuery = (segment: string, keyPrefix: string) => {
+            if (!query.trim()) return segment;
+            const regex = new RegExp(`(${query})`, 'gi');
+            const parts = segment.split(regex);
+            return parts.map((part, idx) =>
+                part.toLowerCase() === query.toLowerCase()
+                    ? (
+                        <mark
+                            key={`${keyPrefix}-h-${idx}`}
+                            className="bg-yellow-400/80 text-black rounded-[2px] px-0.5"
+                        >
+                            {part}
+                        </mark>
+                    )
+                    : <React.Fragment key={`${keyPrefix}-t-${idx}`}>{part}</React.Fragment>
+            );
+        };
+
+        // Split text by URLs and wrap URLs with anchors
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        const segments = text.split(urlRegex);
+
         return (
             <span>
-                {parts.map((part, i) =>
-                    part.toLowerCase() === query.toLowerCase()
-                        ? <mark key={i} className="bg-yellow-400/80 text-black rounded-sm px-0.5">{part}</mark>
-                        : part
-                )}
+                {segments.map((segment, i) => {
+                    const isUrl = /^https?:\/\//i.test(segment);
+                    if (isUrl) {
+                        const url = segment;
+                        return (
+                            <a
+                                key={`url-${i}`}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-300 underline hover:text-blue-100 break-all"
+                            >
+                                {url}
+                            </a>
+                        );
+                    }
+                    return (
+                        <React.Fragment key={`seg-${i}`}>
+                            {highlightQuery(segment, `seg-${i}`)}
+                        </React.Fragment>
+                    );
+                })}
             </span>
         );
     };
@@ -274,7 +318,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                 </button>
                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                                     <p className="text-[13px] font-bold text-white truncate mb-1">
-                                        {message.type === 'voice' ? 'Ovozli xabar' : (message.text.split('/').pop() || 'Audio')}
+                                        {message.metadata?.name
+                                            || message.metadata?.file_name
+                                            || (message.text && message.text.split('/').pop())
+                                            || (message.type === 'voice' ? 'Ovozli xabar' : 'Audio')}
                                     </p>
                                     <div className="flex items-center gap-2 mb-1 cursor-pointer" onClick={handleProgressClick}>
                                         <div className="flex-1 h-1.5 bg-white/20 hover:bg-white/30 rounded-full overflow-hidden transition-colors relative">
@@ -354,8 +401,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             </div>
                         )}
                     </div>
+                    {/* Reactions row */}
+                    {(message as any).reactions && Object.keys((message as any).reactions || {}).length > 0 && (
+                        <div className="flex flex-wrap gap-1 px-1 mt-1">
+                            {Object.values((message as any).reactions).map((r: any) => (
+                                r.users && r.users.length > 0 && (
+                                    <span
+                                        key={r.emoji}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-white/80"
+                                    >
+                                        <span>{r.emoji}</span>
+                                        <span className="text-[9px] font-semibold">{r.users.length}</span>
+                                    </span>
+                                )
+                            ))}
+                        </div>
+                    )}
                     {message.type !== 'image' && message.type !== 'video' && (
-                        <div className="flex items-center gap-1 px-1">
+                        <div className="flex items-center gap-1 px-1 mt-0.5">
                             {message.type === 'text' && (
                                 <button
                                     onClick={handleTranslate}
@@ -365,17 +428,55 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     A/文
                                 </button>
                             )}
+                            {onReact && (
+                                <div className="flex items-center gap-0.5 mr-1">
+                                    {['😃', '👍', '❗'].map(emoji => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => onReact(emoji)}
+                                            className="text-[12px] hover:scale-110 transition-transform"
+                                            title="Reaksiya qo'shish"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <span className="text-[9px] text-white/30 font-bold">{message.timestamp}</span>
                             {message.isOwn && (
                                 message.isPending ? (
-                                    <svg className="h-3 w-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <svg
+                                        className="h-3 w-3 text-white/40"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        title="Yuborilmoqda..."
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
                                 ) : message.is_read ? (
-                                    <div className="flex -space-x-1.5 opacity-90">
-                                        <svg className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                                        <svg className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                    <div
+                                        className="flex -space-x-1.5 opacity-90"
+                                        title="Ko'rildi"
+                                    >
+                                        <svg className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <svg className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                        </svg>
                                     </div>
                                 ) : (
-                                    <svg className="h-3 w-3 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                    <svg
+                                        className="h-3 w-3 text-white/50"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        title="Yetkazildi"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                    </svg>
                                 )
                             )}
                         </div>
