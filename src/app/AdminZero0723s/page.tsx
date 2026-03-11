@@ -66,6 +66,7 @@ interface Expert {
     selfie_url?: string;
     certificate_url?: string;
     resume_url?: string;
+    anketa_url?: string;
     verified_status: 'pending' | 'approved' | 'rejected';
 }
 

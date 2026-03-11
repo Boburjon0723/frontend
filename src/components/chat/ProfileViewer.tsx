@@ -376,6 +376,7 @@ export default function ProfileViewer({
             is_expert: isExpert,
             profession,
             specialization_details: specializationDetails,
+            specialization: specializationDetails || profession,
             experience_years: experience,
             has_diploma: hasDiploma,
             institution,
@@ -397,6 +398,32 @@ export default function ProfileViewer({
             expert_fee_total: expertFee,
             verified_status: 'pending'
         };
+        const apiPayload = {
+            name: user.name,
+            surname: user.surname || '',
+            username: user.username || '',
+            ...payload
+        };
+        try {
+            const res = await fetch(`${apiUrl}/api/users/me`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(apiPayload)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || 'Saqlash muvaffaqiyatsiz');
+            }
+        } catch (e: any) {
+            setToast({
+                type: 'error',
+                message: e?.message || "Server bilan aloqa xatosi. Qayta urinib ko'ring."
+            });
+            return;
+        }
         if (socket) socket.emit('update_profile', payload);
         const newUser = { ...user, ...payload };
         setLocalUser(newUser);

@@ -441,7 +441,7 @@ function MessagesPageContent() {
             />
 
             {/* Scaled/Responsive Main Application Frame */}
-            <div className={`w-full h-full ${isExpertMode ? '' : 'max-w-[1800px] lg:h-[calc(100vh-2rem)] lg:rounded-[2rem]'} flex flex-col lg:flex-row gap-2 lg:gap-4 relative z-10 overflow-hidden`}>
+            <div className={`w-full h-dvh ${isExpertMode ? '' : 'max-w-[1800px] lg:h-[calc(100vh-2rem)] lg:rounded-[2rem]'} flex flex-col lg:flex-row gap-2 lg:gap-4 relative z-10 overflow-hidden`}>
 
                 {/* Global Navigation Drawer (Menu) - Premium Glass Style */}
                 {showMenu && (
@@ -616,7 +616,7 @@ function MessagesPageContent() {
                     />
                 </aside>
 
-                <main className={` ${!showDetail ? 'hidden lg:block' : 'w-full'} flex-1 h-full min-w-0 relative `}>
+                <main className={` ${!showDetail ? 'hidden lg:block' : 'w-full'} flex-1 min-h-0 h-full min-w-0 relative overflow-hidden flex flex-col`}>
                     {activeCategory === 'jobs' ? (
                         <div className="flex flex-col h-full overflow-hidden">
                             <header className="lg:hidden p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">

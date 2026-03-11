@@ -74,6 +74,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const [callType, setCallType] = useState<'audio' | 'video'>('audio');
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [isAtBottom, setIsAtBottom] = useState(true);
+    const [inputFocused, setInputFocused] = useState(false);
+    const chatInputRef = useRef<HTMLInputElement>(null);
     const [showPreCallModal, setShowPreCallModal] = useState(false);
     const [pendingCallType, setPendingCallType] = useState<'audio' | 'video'>('audio');
     const [lowBandwidth, setLowBandwidth] = useState(false);
@@ -1096,9 +1098,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
     const isOnlineHeader = chat.online || isOnline || chat.otherUser?.online;
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative animate-fade-in lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
-            {/* Header */}
-            <header className="flex items-center justify-between p-4 lg:pt-4 pt-[max(2rem,env(safe-area-inset-top))] border-b border-white/10 z-20 shrink-0 backdrop-blur-xl">
+        <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden relative animate-fade-in lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
+            {/* Header — tepada qotib turadi */}
+            <header className={`flex items-center justify-between border-b border-white/10 z-20 shrink-0 backdrop-blur-xl bg-white/5 transition-all duration-200 ${inputFocused ? 'py-2 px-3 lg:py-4 lg:px-4 lg:pt-4 pt-[max(1.25rem,env(safe-area-inset-top))]' : 'p-4 lg:pt-4 pt-[max(2rem,env(safe-area-inset-top))]'}`}>
                 {debugError && (
                     <div className="absolute top-full left-0 right-0 bg-red-500/80 text-white text-[10px] p-1 text-center animate-shake">
                         {debugError}
@@ -1133,9 +1135,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                     </svg>
                                 </button>
                             )}
-                            <div className="flex items-center gap-2 cursor-pointer group" onClick={onToggleInfo}>
-                                <div className="relative">
-                                    <div className={`w-10 h-10 rounded-full border-2 border-white/10 flex items-center justify-center text-white font-bold overflow-hidden transition-transform group-hover:scale-105 ${isTrade ? 'bg-emerald-500' : 'bg-blue-600'}`}>
+                            <div className="flex items-center gap-2 cursor-pointer group min-w-0 flex-1" onClick={onToggleInfo}>
+                                <div className="relative flex-shrink-0">
+                                    <div className={`rounded-full border-2 border-white/10 flex items-center justify-center text-white font-bold overflow-hidden transition-transform group-hover:scale-105 ${inputFocused ? 'w-8 h-8 lg:w-10 lg:h-10' : 'w-10 h-10'} ${isTrade ? 'bg-emerald-500' : 'bg-blue-600'}`}>
                                         {(() => {
                                             const avatar = chat.avatar || chat.otherUser?.avatar || chat.otherUser?.avatar_url;
                                             if (avatar && avatar !== 'null' && avatar !== '' && !headerImageError) {
@@ -1150,8 +1152,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                     <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#1a1c20] ${isOnlineHeader ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-zinc-500'}`}></div>
                                 </div>
                                 <div>
-                                    <h3 className="text-white font-bold leading-tight truncate max-w-[150px] sm:max-w-[300px] group-hover:text-blue-400 transition-colors">{displayName}</h3>
-                                    <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
+                                    <h3 className="text-white font-bold leading-tight truncate max-w-[120px] sm:max-w-[300px] group-hover:text-blue-400 transition-colors">{displayName}</h3>
+                                    <p className={`text-white/40 uppercase tracking-widest font-bold ${inputFocused ? 'hidden lg:block text-[10px]' : 'text-[10px]'}`}>
                                         {isTrade ? 'Savdo Chati' : (isOnlineHeader ? 'Onlayn' : 'Oflayn')}
                                     </p>
                                 </div>
@@ -1378,9 +1380,9 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                 )}
             </div>
 
-            {/* Messages Area */}
+            {/* Messages Area — min-h-0 klaviatura ochilganda qisqaradi, xabarlar + input birga ko'tariladi */}
             <div
-                className={`flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 custom-scrollbar relative ${isDragging ? 'bg-blue-500/10' : ''}`}
+                className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-3 sm:p-4 space-y-4 custom-scrollbar relative pb-4 ${isDragging ? 'bg-blue-500/10' : ''}`}
                 onScroll={handleScroll}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -1458,8 +1460,8 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                 </button>
             )}
 
-            {/* Input Area */}
-            <div className="p-4 pt-0 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
+            {/* Input Area — xabarlar bilan birga ko'tariladi (flow da), radius 25px, iPhone zoom oldini olish (16px) */}
+            <div className="shrink-0 w-full z-30 px-4 pt-0 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
                 {isSomeoneTyping && (
                     <div className="flex items-center gap-2 px-1 pb-1 text-[11px] text-white/60">
                         <div className="flex gap-1">
@@ -1470,7 +1472,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                         <span>Yozmoqda...</span>
                     </div>
                 )}
-                <GlassCard className="flex items-center gap-2 !p-2 border border-white/10 !bg-black/20">
+                <div className="flex items-center gap-2 p-2 rounded-[25px] border border-white/10 bg-white/5 backdrop-blur-xl shadow-lg">
                     <input type="file" ref={fileInputRef} className="hidden" multiple accept="*" onChange={handleFileUpload} />
                     <input type="file" ref={folderInputRef} className="hidden" multiple {...({ webkitdirectory: "" } as any)} onChange={(e) => handleFileUpload(e, true)} />
 
@@ -1518,8 +1520,10 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                             </div>
                         ) : (
                             <input
-                                className="w-full bg-transparent border-none outline-none text-white"
+                                ref={chatInputRef}
+                                className="w-full bg-transparent border-none outline-none text-white placeholder-white/40"
                                 placeholder="Xabar yozing..."
+                                style={{ fontSize: '16px' }}
                                 value={inputValue}
                                 onChange={e => {
                                     setInputValue(e.target.value);
@@ -1531,6 +1535,11 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                         }, 2000);
                                     }
                                 }}
+                                onFocus={() => {
+                                    setInputFocused(true);
+                                    setTimeout(() => scrollToBottom('smooth'), 100);
+                                }}
+                                onBlur={() => setInputFocused(false)}
                                 onKeyPress={e => e.key === 'Enter' && sendMessage()}
                             />
                         )}
@@ -1554,7 +1563,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                         </button>
                     )}
-                </GlassCard>
+                </div>
             </div>
 
             {/* Premium Call Interface */}

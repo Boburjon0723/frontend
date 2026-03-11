@@ -274,7 +274,11 @@ export default function ChatList({
                             <button
                                 key={cat.id}
                                 onClick={() => handleCategoryChange(cat.id)}
-                                className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 relative ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                                className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-transform transition-colors duration-300 relative
+                                    ${activeCategory === cat.id
+                                        ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/30 scale-105'
+                                        : 'bg-white/5 text-white/40 hover:bg-white/10 hover:scale-105 active:scale-95'
+                                    }`}
                             >
                                 <div className="w-5 h-5">{cat.icon}</div>
                                 {count > 0 && (
@@ -289,7 +293,7 @@ export default function ChatList({
             </div>
 
             <div
-                className="flex-1 overflow-y-auto px-3 space-y-3 custom-scrollbar"
+                className="flex-1 overflow-y-auto px-3 pt-3 space-y-3 custom-scrollbar"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
@@ -324,7 +328,8 @@ export default function ChatList({
                                 <GlassCard
                                     onClick={() => chat.type === 'contact' || chat.isGlobal ? handleAddContact(chat) : (onChatSelect && onChatSelect(chat))}
                                     hoverEffect={true}
-                                    className={`flex items-center gap-3 !p-4 !bg-white/[0.05] hover:!bg-white/10 !rounded-[1.5rem] border-transparent transition-all active:scale-[0.98] ${chat.unread > 0 ? '!bg-white/10 shadow-lg shadow-black/small' : ''}`}
+                                    className={`flex items-center gap-3 !p-4 !bg-white/[0.05] hover:!bg-white/10 !rounded-[1.5rem] border-transparent transition-all active:scale-[0.98] animate-slide-up`}
+                                    style={{ animationDelay: `${index * 40}ms` }}
                                 >
                                     <div className="relative">
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden ${isTrade ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-white/10'}`}>

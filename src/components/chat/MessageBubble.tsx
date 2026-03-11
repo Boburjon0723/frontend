@@ -209,8 +209,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
 
     return (
-        <div id={`msg-${message.id}`} className={`flex flex-col mb-1 ${message.isOwn ? 'items-end' : 'items-start'} ${isContinuation ? 'mt-[-12px]' : 'mt-2'}`}>
-            <div className={`flex items-end gap-2 max-w-[85%] sm:max-w-[70%] group`}>
+        <div id={`msg-${message.id}`} className={`flex flex-col mb-1 ${message.isOwn ? 'items-end' : 'items-start'} ${isContinuation ? 'mt-[-10px]' : 'mt-2'}`}>
+            <div className={`flex items-end gap-1 max-w-[92%] sm:max-w-[70%] group`}>
                 {/* Selection Overlay & Checkbox */}
                 {isSelecting && (
                     <div
@@ -225,7 +225,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                 {!message.isOwn && (
                     !isContinuation ? (
-                        <div className="w-8 h-8 rounded-full flex-shrink-0 bg-blue-500/20 border border-white/10 flex items-center justify-center overflow-hidden text-[10px] font-bold">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0 bg-blue-500/20 border border-white/10 flex items-center justify-center overflow-hidden text-[10px] font-bold">
                             {message.senderAvatar || message.sender_avatar || message.avatar ? (
                                 <img
                                     src={message.senderAvatar || message.sender_avatar || message.avatar}
@@ -239,7 +239,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             <span className="text-blue-400">{(message.senderName || "?")[0].toUpperCase()}</span>
                         </div>
                     ) : (
-                        <div className="w-8 flex-shrink-0" /> // Spacer
+                        <div className="w-7 sm:w-8 flex-shrink-0" /> // Spacer
                     )
                 )}
 
@@ -317,21 +317,26 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     )}
                                 </button>
                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                    <p className="text-[13px] font-bold text-white truncate mb-1">
-                                        {message.metadata?.name
-                                            || message.metadata?.file_name
-                                            || (message.text && message.text.split('/').pop())
-                                            || (message.type === 'voice' ? 'Ovozli xabar' : 'Audio')}
-                                    </p>
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                        <p className="text-[13px] font-bold text-white truncate min-w-0">
+                                            {message.metadata?.name
+                                                || message.metadata?.file_name
+                                                || (message.text && message.text.split('/').pop())
+                                                || (message.type === 'voice' ? 'Ovozli xabar' : 'Audio')}
+                                        </p>
+                                        <span className="text-[11px] font-bold text-white/60 tabular-nums flex-shrink-0">
+                                            {formatDuration(isPlaying ? currentTime : duration)}
+                                        </span>
+                                    </div>
                                     <div className="flex items-center gap-2 mb-1 cursor-pointer" onClick={handleProgressClick}>
                                         <div className="flex-1 h-1.5 bg-white/20 hover:bg-white/30 rounded-full overflow-hidden transition-colors relative">
                                             <div className="absolute top-0 left-0 h-full bg-blue-400" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between mt-1">
+                                    <div className="flex items-center justify-between mt-0.5">
                                         <span className="text-[10px] font-bold text-white/50">{formatDuration(isPlaying ? currentTime : duration)}</span>
                                         <span className="text-[9px] font-bold text-white/30 uppercase">
-                                            {message.type === 'voice' ? 'Voice' : formatFileSize(message.metadata?.size)}
+                                            {message.type === 'voice' ? 'Ovozli' : formatFileSize(message.metadata?.size)}
                                         </span>
                                     </div>
                                 </div>
