@@ -4,7 +4,9 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Phone, Eye, EyeOff } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://backend-production-ad05.up.railway.app";
 
 const COUNTRY_CODES = [
   { code: "+998", country: "UZ", label: "Uzbekistan" },
@@ -28,6 +30,14 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [justRegistered, setJustRegistered] = useState(false);
+  const [desktopUrl, setDesktopUrl] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
+  const [resetCode, setResetCode] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -36,6 +46,45 @@ function Login() {
       setJustRegistered(true);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const fetchDesktopInfo = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/desktop`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.url) {
+          setDesktopUrl(data.url);
+        }
+      } catch {
+        // desktop ilova hali sozlanmagan bo'lishi mumkin – jim o'tamiz
+      }
+    };
+
+    fetchDesktopInfo();
+  }, []);
+
+  const handleDesktopDownloadClick = () => {
+    if (!desktopUrl) return;
+    if (typeof window === "undefined") return;
+
+    let url = desktopUrl;
+
+    // Agar bu Google Drive "view" havolasi bo'lsa, uni avtomatik ravishda direct download formatga o'tkazamiz
+    // Misol: https://drive.google.com/file/d/FILE_ID/view?...  ->  https://drive.google.com/uc?export=download&id=FILE_ID
+    try {
+      const driveMatch = url.match(/https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//);
+      if (driveMatch && driveMatch[1]) {
+        const fileId = driveMatch[1];
+        url = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      }
+    } catch {
+      // agar parslash muvaffaqiyatsiz bo'lsa, asl URL bilan davom etamiz
+    }
+
+    // Brauzerga yuklab olishni boshlash uchun shu URL'ga yo'naltiramiz (login sahifadan chiqadi, lekin yuklab olish kafolatliroq ishlaydi)
+    window.location.href = url;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +144,82 @@ function Login() {
     }
   };
 
+  const fullPhone = `${countryCode}${phone.replace(/\D/g, "")}`;
+
+  const handleRequestReset = async () => {
+    setResetError(null);
+    setResetMessage(null);
+
+    const numericPhone = phone.replace(/\D/g, "");
+    if (!numericPhone || numericPhone.length < 9) {
+      setResetError("Avval telefon raqamni to‘liq kiriting.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/request-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: fullPhone }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setResetError(data?.message || "Kod so‘rashda xatolik yuz berdi.");
+        return;
+      }
+
+      setResetStep(2);
+      setResetMessage("Tasdiqlash kodi Telegram bot orqali yuborildi. Kodni botdan oling va pastdagi maydonga kiriting.");
+    } catch (err) {
+      console.error("request reset error:", err);
+      setResetError("Serverga ulanib bo‘lmadi. Keyinroq qayta urinib ko‘ring.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleConfirmReset = async () => {
+    setResetError(null);
+    setResetMessage(null);
+
+    if (!resetCode || !resetNewPassword) {
+      setResetError("Kod va yangi parolni kiriting.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/confirm-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: fullPhone,
+          code: resetCode.trim(),
+          newPassword: resetNewPassword,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setResetError(data?.message || "Parolni tiklashda xatolik yuz berdi.");
+        return;
+      }
+
+      setResetMessage("Parol muvaffaqiyatli yangilandi. Endi yangi parol bilan tizimga kiring.");
+      setResetStep(1);
+      setResetCode("");
+      setResetNewPassword("");
+      setResetOpen(false);
+    } catch (err) {
+      console.error("confirm reset error:", err);
+      setResetError("Serverga ulanib bo‘lmadi. Keyinroq qayta urinib ko‘ring.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white flex items-start md:items-center justify-center relative overflow-hidden overflow-y-auto">
       {/* Background gradient */}
@@ -123,6 +248,17 @@ function Login() {
                 do&apos;stlaringiz, hamkorlaringiz va mijozlaringiz bilan
                 xavfsiz muloqotni davom ettiring.
               </p>
+              {desktopUrl && (
+                <div className="mt-5">
+                  <button
+                    type="button"
+                    onClick={handleDesktopDownloadClick}
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs md:text-sm font-medium text-sky-200 hover:bg-white/10 hover:border-sky-400/60 transition-colors"
+                  >
+                    Windows uchun MessenjrAli Desktop ilovasini yuklab olish
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="hidden md:flex items-center gap-3 text-xs text-slate-400/80">
@@ -225,7 +361,12 @@ function Login() {
                 <div className="flex items-center justify-between pt-1 text-[11px]">
                   <button
                     type="button"
-                    onClick={() => alert("Tez orada: parolni tiklash funksiyasi qo'shiladi.")}
+                    onClick={() => {
+                      setResetOpen((v) => !v);
+                      setResetError(null);
+                      setResetMessage(null);
+                      setResetStep(1);
+                    }}
                     className="text-slate-400 hover:text-slate-200 transition-colors"
                   >
                     Parolni unutdingizmi?
@@ -244,6 +385,77 @@ function Login() {
                     </p>
                   </div>
                 </div>
+
+                {resetOpen && (
+                  <div className="mt-4 rounded-2xl border border-sky-500/30 bg-sky-500/5 p-3 space-y-3">
+                    <p className="text-[11px] text-slate-200">
+                      Parolni tiklash uchun avval telefon raqamingizni yuqorida kiriting, so‘ngra{" "}
+                      <span className="font-semibold text-sky-300">“Kod olish”</span> tugmasini bosing. Tasdiqlash kodi
+                      shu oynada ko‘rsatiladi va pastdagi maydonga kiritasiz.
+                    </p>
+                    {resetMessage && (
+                      <div className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2">
+                        {resetMessage}
+                      </div>
+                    )}
+                    {resetError && (
+                      <div className="text-[11px] text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+                        {resetError}
+                      </div>
+                    )}
+
+                    {resetStep === 1 && (
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={handleRequestReset}
+                          disabled={resetLoading}
+                          className="inline-flex items-center justify-center rounded-full bg-sky-600 hover:bg-sky-500 px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {resetLoading ? "Yuborilmoqda..." : "Kod olish"}
+                        </button>
+                        <span className="text-[10px] text-slate-400">
+                          Avval telefon raqamingizni to‘liq kiritganingizga ishonch hosil qiling.
+                        </span>
+                      </div>
+                    )}
+
+                    {resetStep === 2 && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-slate-300">Tasdiqlash kodi</label>
+                            <input
+                              type="text"
+                              value={resetCode}
+                              onChange={(e) => setResetCode(e.target.value)}
+                              className="w-full rounded-2xl bg-black/40 border border-white/10 px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
+                              placeholder="123456"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-slate-300">Yangi parol</label>
+                            <input
+                              type="password"
+                              value={resetNewPassword}
+                              onChange={(e) => setResetNewPassword(e.target.value)}
+                              className="w-full rounded-2xl bg-black/40 border border-white/10 px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
+                              placeholder="Yangi parol"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleConfirmReset}
+                          disabled={resetLoading}
+                          className="inline-flex items-center justify-center rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {resetLoading ? "Tekshirilmoqda..." : "Parolni tiklash"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"

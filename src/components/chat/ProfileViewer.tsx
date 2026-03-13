@@ -87,6 +87,11 @@ export default function ProfileViewer({
     const [editLastName, setEditLastName] = useState("");
     const [editUsername, setEditUsername] = useState("");
 
+    // Telegram link state
+    const [telegramLinkCode, setTelegramLinkCode] = useState<string | null>(null);
+    const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+    const [telegramLinkMessage, setTelegramLinkMessage] = useState<string | null>(null);
+
     // Expert States
     const [isExpert, setIsExpert] = useState(false);
     const [verifiedStatus, setVerifiedStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
@@ -335,7 +340,7 @@ export default function ProfileViewer({
         }
 
         const token = localStorage.getItem('token');
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
 
         // Create actual chat groups for new expert groups
         const updatedGroups = [...expertGroups];
@@ -483,7 +488,7 @@ export default function ProfileViewer({
     const fetchWallet = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/api/wallet/balance`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/api/wallet/balance`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -505,7 +510,7 @@ export default function ProfileViewer({
         setIsSubscribing(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/api/wallet/subscribe`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/api/wallet/subscribe`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -632,6 +637,70 @@ export default function ProfileViewer({
                             </span>
                             <span className="text-white/30 text-[12px]">{language === 'ru' ? 'День рождения' : 'Tug\'ilgan kun'}</span>
                         </div>
+                    </div>
+
+                    {/* Telegram link block */}
+                    <div className="mt-2 px-4 py-3 rounded-[15px] bg-white/5 border border-white/10 space-y-2">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex flex-col">
+                                <span className="text-white text-[14px] font-semibold">Telegram bilan bog‘lash</span>
+                                <span className="text-white/40 text-[11px]">
+                                    Parolni unutganda tasdiqlash kodlari aynan shu bot orqali yuboriladi.
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    setTelegramLinkMessage(null);
+                                    setTelegramLinkLoading(true);
+                                    try {
+                                        const token = localStorage.getItem('token');
+                                        if (!token) {
+                                            setTelegramLinkMessage("Avval tizimga kiring.");
+                                            return;
+                                        }
+                                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/api/auth/start-telegram-link`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${token}`
+                                            }
+                                        });
+                                        const data = await res.json().catch(() => ({}));
+                                        if (!res.ok || !data?.code) {
+                                            setTelegramLinkMessage(data?.message || "Bog‘lash kodini yaratib bo‘lmadi.");
+                                            return;
+                                        }
+                                        setTelegramLinkCode(data.code);
+                                        setTelegramLinkMessage("Botga yuborish uchun kod yaratildi.");
+                                    } catch (e: any) {
+                                        console.error('start telegram link error:', e);
+                                        setTelegramLinkMessage("Server bilan ulanishda xatolik. Keyinroq urinib ko‘ring.");
+                                    } finally {
+                                        setTelegramLinkLoading(false);
+                                    }
+                                }}
+                                disabled={telegramLinkLoading}
+                                className="text-[11px] px-3 py-1.5 rounded-full bg-[#00A884] hover:bg-emerald-500 text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {telegramLinkLoading ? 'Yaratilmoqda...' : 'Bog‘lash kodini olish'}
+                            </button>
+                        </div>
+                        {telegramLinkMessage && (
+                            <div className="text-[11px] text-emerald-200 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2 mt-1">
+                                <p className="mb-1">{telegramLinkMessage}</p>
+                                {telegramLinkCode && (
+                                    <>
+                                        <p className="font-mono text-sm tracking-widest text-emerald-300">
+                                            {telegramLinkCode}
+                                        </p>
+                                        <p className="mt-1">
+                                            Telegram’da <span className="font-semibold">@MessenjrAli_bot</span> ga <code className="bg-black/30 px-1 rounded">/start</code> yozing, so‘ng ushbu kodni yuboring.
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 

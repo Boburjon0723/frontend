@@ -37,6 +37,9 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
     const [languages, setLanguages] = useState("");
 
     const [error, setError] = useState<string | null>(null);
+    const [telegramLinkCode, setTelegramLinkCode] = useState<string | null>(null);
+    const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+    const [telegramLinkMessage, setTelegramLinkMessage] = useState<string | null>(null);
 
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -146,7 +149,7 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/api/users/me`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/api/users/me`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -181,6 +184,38 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                 }
             };
             reader.readAsDataURL(file);
+        }
+    };
+
+    const handleStartTelegramLink = async () => {
+        setTelegramLinkMessage(null);
+        setError(null);
+        setTelegramLinkLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError('Telegram bilan bog‘lash uchun avval tizimga kiring.');
+                return;
+            }
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/api/auth/start-telegram-link`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.code) {
+                setError(data?.message || 'Telegram bilan bog‘lash kodini yaratib bo‘lmadi.');
+                return;
+            }
+            setTelegramLinkCode(data.code);
+            setTelegramLinkMessage('Bot bilan bog‘lanish uchun quyidagi kodni Telegram botga yuboring.');
+        } catch (e: any) {
+            console.error('start telegram link error:', e);
+            setError('Server bilan ulanishda xatolik. Keyinroq urinib ko‘ring.');
+        } finally {
+            setTelegramLinkLoading(false);
         }
     };
 
@@ -237,6 +272,37 @@ export default function ProfileEditor({ onClose, onSave }: ProfileEditorProps) {
                             </div>
                         )}
                         <p className="text-[#3b82f6] text-xs font-medium mt-3">Edit Picture</p>
+                    </div>
+
+                    {/* Telegram link section */}
+                    <div className="space-y-2 border border-white/10 rounded-2xl p-3 bg-white/5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold text-slate-100">Telegram bilan bog‘lash</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Parolni unutganda tasdiqlash kodlari aynan Telegram bot orqali yuboriladi.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleStartTelegramLink}
+                                disabled={telegramLinkLoading}
+                                className="text-[11px] px-3 py-1.5 rounded-full bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {telegramLinkLoading ? 'Yaratilmoqda...' : 'Bog‘lash kodini olish'}
+                            </button>
+                        </div>
+                        {telegramLinkMessage && telegramLinkCode && (
+                            <div className="mt-2 text-[11px] text-emerald-200 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2">
+                                <p className="mb-1">{telegramLinkMessage}</p>
+                                <p className="font-mono text-sm tracking-widest text-emerald-300">
+                                    {telegramLinkCode}
+                                </p>
+                                <p className="mt-1">
+                                    Telegram’da botga <span className="font-semibold">@MessenjrAli_bot</span> ni ochib, avval <code className="bg-black/30 px-1 rounded">/start</code> yozing, so‘ng ushbu kodni yuboring.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Section: Basic Info */}

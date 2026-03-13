@@ -1143,7 +1143,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                             if (avatar && avatar !== 'null' && avatar !== '' && !headerImageError) {
                                                 const src = avatar.startsWith('http') || avatar.startsWith('data:')
                                                     ? avatar
-                                                    : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`;
+                                                    : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`;
                                                 return <img src={src} className="w-full h-full object-cover" onError={() => setHeaderImageError(true)} />;
                                             }
                                             return displayName ? displayName[0].toUpperCase() : '?';
@@ -1614,7 +1614,7 @@ export default function ChatWindow({ chat, onToggleInfo, onBack, onMarkAsRead }:
                                             {(() => {
                                                 const avatar = chat?.avatar || chat?.otherUser?.avatar || chat?.otherUser?.avatar_url || callData?.fromAvatar;
                                                 if (avatar && avatar !== 'null' && avatar !== '') {
-                                                    const src = avatar.startsWith('http') ? avatar : (avatar.startsWith('data:') ? avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`);
+                                                    const src = avatar.startsWith('http') ? avatar : (avatar.startsWith('data:') ? avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}${avatar.startsWith('/') ? '' : '/'}${avatar}`);
                                                     return <img src={src} className="w-full h-full object-cover" />;
                                                 }
                                                 return (displayName || callData?.fromName || "?")[0].toUpperCase();

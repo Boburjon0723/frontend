@@ -7,15 +7,15 @@ const nextConfig: NextConfig = {
   output: isProd ? 'export' : undefined,
   trailingSlash: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app',
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'wss://backend-production-6de74.up.railway.app',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app',
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'wss://backend-production-ad05.up.railway.app',
   },
   images: {
     unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'backend-production-6de74.up.railway.app',
+        hostname: 'backend-production-ad05.up.railway.app',
         pathname: '/**',
       },
       {

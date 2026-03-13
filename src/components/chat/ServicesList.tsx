@@ -122,7 +122,7 @@ export default function ServicesList({ onStartChat, activeTab = 'jobs' }: { onSt
         return msg || "Kutilmagan xatolik yuz berdi.";
     };
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
 
     const fetchCategories = async () => {
         try {

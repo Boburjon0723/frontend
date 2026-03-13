@@ -338,7 +338,7 @@ export default function ChatList({
                                                 if (avatar && avatar !== 'null' && avatar !== '' && avatar !== 'use_initials' && !isTrade) {
                                                     const src = avatar.startsWith('http') || avatar.startsWith('data:')
                                                         ? avatar
-                                                        : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-6de74.up.railway.app'}/${avatar}`;
+                                                        : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/${avatar}`;
                                                     return (
                                                         <img
                                                             src={src}
