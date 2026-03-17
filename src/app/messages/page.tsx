@@ -10,8 +10,10 @@ import ProfileEditor from "@/components/chat/ProfileEditor";
 import WalletPanel from "@/components/chat/WalletPanel";
 import ExpenseTracker from "@/components/chat/ExpenseTracker";
 import CommunitiesList from "@/components/chat/CommunitiesList";
+import JobsPanel from "@/components/jobs/JobsPanel";
 import ChannelInfoPanel from "@/components/chat/ChannelInfoPanel";
 import UserInfoPanel from "@/components/chat/UserInfoPanel";
+import ExpertActionsPanel from "@/components/chat/ExpertActionsPanel";
 import AddContactModal from "@/components/chat/AddContactModal";
 import CreateGroupModal from "@/components/chat/CreateGroupModal";
 import CreateChannelModal from "@/components/chat/CreateChannelModal";
@@ -45,7 +47,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getToken, getUser, clearAuth, setUser } from "@/lib/auth-storage";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 import { Suspense } from "react";
 
@@ -66,17 +68,8 @@ function MessagesPageContent() {
     const [isExpertMode, setIsExpertMode] = useState(false);
     const searchParams = useSearchParams();
     const roomParam = searchParams.get('room');
-
-    // Talaba darsga kirish: 30 kunlik obuna tekshiriladi, yo'q bo'lsa obuna bo'lish taklif qilinadi
-    if (roomParam) {
-        return (
-            <RoomAccessGate
-                roomId={roomParam}
-                user={currentUser}
-                onLeave={() => window.location.href = '/messages'}
-            />
-        );
-    }
+    const router = useRouter();
+    const [roomGateState, setRoomGateState] = useState<'checking' | 'payment' | 'joined' | null>(roomParam ? 'checking' : null);
 
     // Search State
     const [searchQuery, setSearchQuery] = useState("");
@@ -97,6 +90,11 @@ function MessagesPageContent() {
     const [bgImageBlur, setBgImageBlur] = useState(20);
     const [bgImage, setBgImage] = useState("/premium-bg.png");
     const [isDarkMode, setIsDarkMode] = useState(true);
+
+    // Sidebar -> services selected expert
+    const [selectedExpertFromSidebar, setSelectedExpertFromSidebar] = useState<any | null>(null);
+    // Markazda tanlangan ekspert (ServicesList dan)
+    const [selectedExpertInView, setSelectedExpertInView] = useState<any | null>(null);
 
     useEffect(() => {
         const savedBlur = localStorage.getItem('app-bg-blur');
@@ -482,8 +480,90 @@ function MessagesPageContent() {
         }
     }, [selectedChat?.id]);
 
+    // roomParam: obunani tekshirish, guruhga qo'shilish, guruh chatini ko'rsatish
+    useEffect(() => {
+        if (!roomParam || !currentUser?.id) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const roomRes = await apiFetch(`/api/chats/${roomParam}/room-info`);
+                if (cancelled) return;
+                if (!roomRes.ok) {
+                    setRoomGateState('payment');
+                    return;
+                }
+                const room = await roomRes.json();
+                const creatorId = room.creator_id;
+                if (creatorId) {
+                    const subRes = await apiFetch(`/api/wallet/subscription-status?mentorId=${encodeURIComponent(creatorId)}`);
+                    if (cancelled) return;
+                    const subData = await subRes.json();
+                    if (!subData?.active) {
+                        setRoomGateState('payment');
+                        return;
+                    }
+                }
+                const joinRes = await apiFetch(`/api/chats/${roomParam}/join-with-subscription`, { method: 'POST' });
+                if (cancelled) return;
+                if (!joinRes.ok) {
+                    setRoomGateState('payment');
+                    return;
+                }
+                const chatsRes = await apiFetch('/api/chats?refresh=1');
+                if (cancelled) return;
+                if (chatsRes.ok) {
+                    const data = await chatsRes.json();
+                    const mappedChats = data.map((chat: any) => {
+                        const chatId = chat.id || chat._id;
+                        return {
+                            ...chat,
+                            id: chatId,
+                            name: chat.type === 'group' ? chat.name : (chat.otherUser?.name ? `${chat.otherUser.name} ${chat.otherUser.surname || ''}` : 'Unknown User'),
+                            message: chat.lastMessage || "No messages yet",
+                            time: chat.lastMessageAt ? new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
+                            unread: 0,
+                            avatar: chat.type === 'group' ? (chat.avatar_url ?? chat.avatar ?? null) : (chat.otherUser?.avatar || "use_initials"),
+                            status: "offline",
+                            type: chat.type || "private",
+                            participantId: chat.otherUser?.id,
+                        };
+                    });
+                    setChats(mappedChats);
+                    const roomChat = mappedChats.find((c: any) => String(c.id) === String(roomParam));
+                    if (roomChat) setSelectedChat(roomChat);
+                }
+                setRoomGateState('joined');
+                setLoading(false);
+                router.replace('/messages');
+            } catch {
+                if (!cancelled) setRoomGateState('payment');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [roomParam, currentUser?.id, router]);
+
     const isPanelCategory = ['jobs', 'services', 'finance', 'communities', 'wallet', 'profile', 'settings', 'profile_edit', 'bots'].includes(activeCategory);
     const showDetail = !!selectedChat || isPanelCategory;
+
+    // roomParam + to'lov talab qilinadi – RoomAccessGate (obuna oynasi)
+    if (roomParam && roomGateState === 'payment') {
+        return (
+            <RoomAccessGate
+                roomId={roomParam}
+                user={currentUser}
+                onLeave={() => window.location.href = '/messages'}
+            />
+        );
+    }
+    // roomParam + tekshirilmoqda
+    if (roomParam && roomGateState === 'checking') {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#0f1116] text-white gap-4">
+                <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <p className="text-sm text-white/60">Guruhga qo&apos;shilmoqda...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 flex items-center justify-center bg-black animate-fade-in">
@@ -505,8 +585,8 @@ function MessagesPageContent() {
                 {/* Global Navigation Drawer (Menu) - Premium Glass Style */}
                 {showMenu && (
                     <>
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-[4px] z-[100] animate-in fade-in duration-300" onClick={() => setShowMenu(false)}></div>
-                        <div className="fixed top-0 left-0 bottom-0 w-[300px] z-[110] flex flex-col animate-in slide-in-from-left duration-300 ease-out bg-white/30 backdrop-blur-[25px] brightness-[0.85] border-r border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-[4px] z-[100] animate-fade-in" onClick={() => setShowMenu(false)}></div>
+                        <div className="fixed top-0 left-0 bottom-0 w-[300px] z-[110] flex flex-col animate-slide-drawer-left bg-white/30 backdrop-blur-[25px] brightness-[0.85] border-r border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
                             <div className="flex items-center justify-between p-5 px-6 border-b border-white/10">
                                 <h2 className="text-white font-bold text-xl tracking-tight drop-shadow-md">MessenjrAli</h2>
                                 <button onClick={() => setShowMenu(false)} className="text-white/80 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -675,6 +755,11 @@ function MessagesPageContent() {
                         showNotifications={showNotifications}
                         setShowNotifications={setShowNotifications}
                         unreadCount={unreadCount}
+                        onExpertSelect={(exp) => {
+                            setSelectedExpertFromSidebar(exp);
+                            setSelectedExpertInView(exp);
+                            setActiveCategory('services');
+                        }}
                     />
                 </aside>
 
@@ -688,7 +773,7 @@ function MessagesPageContent() {
                                 <h2 className="text-white font-bold">Ish qidirish</h2>
                             </header>
                             <div className="w-full h-full p-4 overflow-hidden">
-                                <ServicesList activeTab="jobs" onStartChat={handleAddContact} />
+                                <JobsPanel />
                             </div>
                         </div>
                     )
@@ -701,7 +786,14 @@ function MessagesPageContent() {
                                     <h2 className="text-white font-bold">Xizmatlar</h2>
                                 </header>
                                 <div className="w-full h-full p-4 overflow-hidden">
-                                    <ServicesList activeTab="experts" onStartChat={handleAddContact} />
+                                    <ServicesList
+                                        activeTab="experts"
+                                        onStartChat={handleAddContact}
+                                        initialSelectedExpert={selectedExpertFromSidebar}
+                                        onExpertSelect={setSelectedExpertInView}
+                                        showRightPanel={showRightPanel}
+                                        onToggleRightPanel={() => setShowRightPanel(true)}
+                                    />
                                 </div>
                             </div>
                         )
@@ -827,20 +919,30 @@ function MessagesPageContent() {
                     </nav>
                 )}
 
-                {showRightPanel && selectedChat && (
+                {(showRightPanel && selectedChat) || (showRightPanel && activeCategory === 'services' && selectedExpertInView) ? (
                     <aside className="fixed lg:relative inset-0 lg:inset-auto z-[110] lg:z-0 xl:block w-80 h-full flex-shrink-0 animate-slide-left">
-                        {selectedChat.type === 'channel' ? <ChannelInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
-                            : selectedChat.type === 'private' ? <UserInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
-                                : <GroupInfoPanel
-                                    chat={selectedChat}
-                                    onClose={() => setShowRightPanel(false)}
-                                    onDeleted={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
-                                    onLeft={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
-                                    onGroupUpdated={() => fetchChats()}
-                                    onChatNotFound={() => { fetchChats(true); setSelectedChat(null); setShowRightPanel(false); }}
-                                />}
+                        {activeCategory === 'services' && selectedExpertInView ? (
+                            <ExpertActionsPanel
+                                expert={selectedExpertInView}
+                                onClose={() => setShowRightPanel(false)}
+                                onStartChat={handleAddContact}
+                            />
+                        ) : selectedChat?.type === 'channel' ? (
+                            <ChannelInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
+                        ) : selectedChat?.type === 'private' ? (
+                            <UserInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
+                        ) : selectedChat ? (
+                            <GroupInfoPanel
+                                chat={selectedChat}
+                                onClose={() => setShowRightPanel(false)}
+                                onDeleted={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
+                                onLeft={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
+                                onGroupUpdated={() => fetchChats()}
+                                onChatNotFound={() => { fetchChats(true); setSelectedChat(null); setShowRightPanel(false); }}
+                            />
+                        ) : null}
                     </aside>
-                )}
+                ) : null}
             </div>
         </div>
     );
