@@ -74,6 +74,7 @@ interface ChatListProps {
     activeCategory: string;
     onCategoryChange: (category: string) => void;
     onChatSelect?: (chat: any) => void;
+    onExpertSelect?: (expert: any) => void;
     className?: string;
     hideHeader?: boolean;
     hideCategories?: boolean;
@@ -110,6 +111,7 @@ export default function ChatList({
     activeCategory = 'all',
     onCategoryChange,
     onChatSelect,
+    onExpertSelect,
     className,
     hideHeader = false,
     hideCategories = false,
@@ -195,6 +197,33 @@ export default function ChatList({
                     if (activeCategory === 'user') return chat.type === 'private' || !chat.type;
                     return chat.type === activeCategory;
                 }));
+
+    const [expertCards, setExpertCards] = useState<any[]>([]);
+    const [expertLoading, setExpertLoading] = useState(false);
+
+    useEffect(() => {
+        const loadExperts = async () => {
+            if (activeCategory !== 'services') return;
+            try {
+                setExpertLoading(true);
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+                const res = await fetch(`${API_URL}/api/users/search?expert=true`, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setExpertCards(data.filter((u: any) => u.verified_status === 'approved'));
+                }
+            } catch (e) {
+                console.error('Failed to load experts for sidebar:', e);
+            } finally {
+                setExpertLoading(false);
+            }
+        };
+        loadExperts();
+    }, [activeCategory]);
 
     const getCategoryUnreadCount = (catId: string) => {
         if (catId === 'all') {
@@ -297,7 +326,70 @@ export default function ChatList({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
-                {loading ? (
+                {activeCategory === 'services' ? (
+                    expertLoading ? (
+                        <div className="pt-3 space-y-3">
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <div
+                                    key={idx}
+                                    className="animate-pulse rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-center gap-3"
+                                >
+                                    <div className="h-10 w-10 rounded-full bg-white/10" />
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                                        <div className="h-2 w-3/4 rounded-full bg-white/5" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : expertCards.length > 0 ? (
+                        expertCards.map((exp, index) => (
+                            <div key={exp.id || index} className="px-1">
+                                <GlassCard
+                                    onClick={() => onExpertSelect && onExpertSelect(exp)}
+                                    hoverEffect={true}
+                                    className="flex items-center gap-3 !p-4 !bg-white/[0.06] hover:!bg-white/10 !rounded-[1.5rem] border border-emerald-500/20 transition-all active:scale-[0.98]"
+                                    style={{ animationDelay: `${index * 40}ms` }}
+                                >
+                                    <div className="relative">
+                                        <div className="w-11 h-11 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center text-white font-bold text-lg">
+                                            {exp.avatar_url ? (
+                                                <img src={exp.avatar_url} className="w-full h-full object-cover" />
+                                            ) : (
+                                                (exp.name || '?').substring(0, 1).toUpperCase()
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <h3 className="text-white font-medium truncate text-sm">
+                                                {exp.name} {exp.surname}
+                                            </h3>
+                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 font-bold uppercase tracking-widest">
+                                                Approved
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-blue-300 font-semibold uppercase tracking-widest truncate">
+                                            {exp.profession}
+                                        </p>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <span className="text-[10px] text-white/40">
+                                                {(exp.experience_years || 0)} yil tajriba
+                                            </span>
+                                            <span className="text-[11px] text-emerald-300 font-bold">
+                                                {(exp.hourly_rate || exp.service_price || 0)} MALI
+                                            </span>
+                                        </div>
+                                    </div>
+                                </GlassCard>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-40 text-white/40 mt-10">
+                            <p className="text-sm">Hozircha tasdiqlangan e'lonlar yo'q</p>
+                        </div>
+                    )
+                ) : loading ? (
                     <div className="pt-3 space-y-3">
                         {Array.from({ length: 6 }).map((_, idx) => (
                             <div
