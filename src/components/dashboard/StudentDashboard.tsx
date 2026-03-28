@@ -9,8 +9,10 @@ import {
     LiveKitRoom,
     RoomAudioRenderer,
     useRemoteParticipants,
-    useLocalParticipant
+    useLocalParticipant,
+    useConnectionState
 } from '@livekit/components-react';
+import { ConnectionState } from 'livekit-client';
 import '@livekit/components-styles';
 import {
     FileText,
@@ -134,11 +136,18 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
             }
         };
 
+        const handleLessonEnded = (data: { sessionId?: string; message?: string }) => {
+            if (data?.sessionId != null && String(data.sessionId) !== String(sessionId)) return;
+            alert(data?.message || "Dars yakunlandi. Ustoz darsni tugatdi.");
+            onLeave();
+        };
+
         socket.on('material_uploaded', handleNewMaterial);
         socket.on('quiz_start', handleQuizStart);
         socket.on('quiz_active', handleQuizStart);
         socket.on('whiteboard:toggle', handleWhiteboardToggle);
         socket.on('student_kicked', handleStudentKicked);
+        socket.on('lesson_ended', handleLessonEnded);
 
         return () => {
             socket.off('material_uploaded', handleNewMaterial);
@@ -146,6 +155,7 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
             socket.off('quiz_active', handleQuizStart);
             socket.off('whiteboard:toggle', handleWhiteboardToggle);
             socket.off('student_kicked', handleStudentKicked);
+            socket.off('lesson_ended', handleLessonEnded);
         };
     }, [socket, sessionId, onLeave]);
 
@@ -263,9 +273,10 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
 
     return (
         <div className="fixed inset-0 flex flex-col bg-[#0a0b10] text-white overflow-hidden font-sans">
+            {/* Kamera yo'q PCda ham xona ochilishi uchun avval media yo'q ulanish; keyin mic/cam alohida yoqiladi */}
             <LiveKitRoom
-                video={true}
-                audio={true}
+                video={false}
+                audio={false}
                 connect={true}
                 token={token}
                 serverUrl={wsUrl || process.env.NEXT_PUBLIC_LIVEKIT_URL || 'wss://mali-livekit-tl6r65ar.livekit.cloud'}
@@ -505,8 +516,24 @@ export default function StudentDashboard({ user, sessionId, onLeave }: StudentDa
 
 function StudentMediaControls() {
     const { localParticipant } = useLocalParticipant();
+    const connectionState = useConnectionState();
     const [isMicEnabled, setIsMicEnabled] = useState(true);
     const [isCamEnabled, setIsCamEnabled] = useState(true);
+
+    useEffect(() => {
+        if (connectionState !== ConnectionState.Connected || !localParticipant) return;
+        const t = setTimeout(() => {
+            localParticipant.setMicrophoneEnabled(true).then(() => setIsMicEnabled(true)).catch((e) => {
+                console.warn('Student mic:', e);
+                setIsMicEnabled(false);
+            });
+            localParticipant.setCameraEnabled(true).then(() => setIsCamEnabled(true)).catch((e) => {
+                console.warn('Student camera (kamera yo\'q bo\'lishi mumkin):', e);
+                setIsCamEnabled(false);
+            });
+        }, 600);
+        return () => clearTimeout(t);
+    }, [connectionState, localParticipant]);
 
     const toggleMic = async () => {
         const nextState = !isMicEnabled;

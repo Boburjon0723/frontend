@@ -9,6 +9,8 @@ import LiveKitRoomWrapper from './LiveKitRoomWrapper';
 import { useSocket } from '@/context/SocketContext';
 import { apiFetch } from '@/lib/api';
 import { getUser } from '@/lib/auth-storage';
+import { getExpertPanelMode } from '@/lib/expert-roles';
+import { getExpertComplianceNotice } from '@/lib/expert-compliance-copy';
 import { summarizeChat } from '@/lib/summarize';
 import { maliDB, OfflineMessage } from '@/lib/indexeddb';
 
@@ -324,13 +326,19 @@ export default function ChatWindow({ chat, chats = [], onToggleInfo, onBack, onM
     const fetchActiveSession = useCallback(async () => {
         if (!chat || !chat.id) return;
         try {
-            const res = await apiFetch(`/api/p2p/trades`);
+            const res = await apiFetch(`/api/service/my-sessions`);
             if (res.ok) {
                 const sessions = await res.json();
-                const current = sessions.find((s: any) => s.chat_id === chat.id && (s.status === 'initiated' || s.status === 'ongoing'));
+                const current = sessions.find(
+                    (s: any) =>
+                        String(s.chat_id) === String(chat.id) &&
+                        (s.status === 'initiated' || s.status === 'ongoing')
+                );
                 setActiveSession(current || null);
             }
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+        }
     }, [chat?.id]);
 
     const checkIfContact = useCallback(async () => {
@@ -961,10 +969,11 @@ export default function ChatWindow({ chat, chats = [], onToggleInfo, onBack, onM
         return () => { socket.off('receive_message', handleReceiveMessage); };
     }, [socket, chat, markAsRead]);
 
-    const sendMessage = async () => {
-        if (!inputValue.trim() || !chat) return;
+    const sendMessage = async (textOverride?: string) => {
+        const content = (textOverride ?? inputValue).trim();
+        if (!content || !chat) return;
         const clientSideId = `temp_${Date.now()}`;
-        const inputContent = inputValue;
+        const inputContent = content;
         const currentReplyTo = replyTo;
 
         setInputValue("");
@@ -1012,6 +1021,15 @@ export default function ChatWindow({ chat, chats = [], onToggleInfo, onBack, onM
             }
         }
     };
+
+    // O'ng panel (UserInfoPanel) dan xabar yuborishni qo'llab-quvvatlash
+    useEffect(() => {
+        const handler = (e: CustomEvent<{ text: string }>) => {
+            if (chat && e.detail?.text?.trim()) sendMessage(e.detail.text.trim());
+        };
+        window.addEventListener('panel_quick_send', handler as EventListener);
+        return () => window.removeEventListener('panel_quick_send', handler as EventListener);
+    }, [chat?.id]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isFolder = false) => {
         const files = e.target.files;
@@ -1196,6 +1214,10 @@ export default function ChatWindow({ chat, chats = [], onToggleInfo, onBack, onM
     if (!chat) return <div className="flex-1 flex items-center justify-center text-white/40">Suhbatni tanlang</div>;
 
     const currentUser = getUser() || {};
+    const chatCompliance =
+        chat?.type === 'private' && chat?.otherUser
+            ? getExpertComplianceNotice(getExpertPanelMode(chat.otherUser), 'client')
+            : null;
     const isChannelCreator = chat?.type === 'channel' && (chat?.creator_id ?? chat?.creatorId) === currentUser?.id;
     const isTrade = chat?.isTrade;
     const isBuyer = tradeData?.buyer_id === currentUser.id;
@@ -1409,6 +1431,16 @@ export default function ChatWindow({ chat, chats = [], onToggleInfo, onBack, onM
 
             {/* Special Banners Container */}
             <div className="z-10 px-4 space-y-2 mt-2">
+                {chatCompliance && !isTrade && (
+                    <div className="bg-amber-900/30 backdrop-blur-xl border border-amber-400/30 rounded-2xl p-3 shadow-lg text-[11px] text-amber-50/95 leading-snug">
+                        <p className="font-bold text-amber-100 mb-1">{chatCompliance.title}</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-amber-50/90">
+                            {chatCompliance.lines.map((ln, i) => (
+                                <li key={i}>{ln}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
                 {/* Unknown Contact Bar */}
                 {!isContact && !isTrade && (
                     <div className="bg-[#1e293b]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-3 flex items-center justify-between shadow-lg animate-slide-up">
@@ -1514,6 +1546,7 @@ export default function ChatWindow({ chat, chats = [], onToggleInfo, onBack, onM
                             <div ref={(node) => observeMessage(node, msg)}>
                                 <MessageBubble
                                     message={{ ...msg, timestamp: msg.time, isOwn: msg.sender === 'me' }}
+                                    chatId={chat?.id ? String(chat.id) : undefined}
                                     onReply={setReplyTo}
                                     isSelecting={isSelecting}
                                     isSelected={selectedMessageIds.includes(msg.id)}

@@ -140,9 +140,13 @@ export function LiveWhiteboard({ socket, sessionId, isMentor, onClose }: LiveWhi
             if (data.sessionId !== sessionId) return;
             if (!canvasRef.current) return;
             const ctx = canvasRef.current.getContext('2d');
+            const c = canvasRef.current;
             if (ctx) {
+                const dpr = window.devicePixelRatio || 1;
+                const lw = c.width / dpr;
+                const lh = c.height / dpr;
                 ctx.fillStyle = '#1c1f2b';
-                ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                ctx.fillRect(0, 0, lw, lh);
             }
         };
 
@@ -155,26 +159,27 @@ export function LiveWhiteboard({ socket, sessionId, isMentor, onClose }: LiveWhi
         };
     }, [socket, sessionId, drawLine]);
 
+    /** Koordinatalar CSS pixels — ctx.scale(dpr,dpr) dan keyin to'g'ri chiziladi */
     const getMousePos = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
         if (!canvasRef.current) return { x: 0, y: 0 };
         const rect = canvasRef.current.getBoundingClientRect();
 
-        let clientX, clientY;
-        if ('touches' in e) {
+        let clientX: number;
+        let clientY: number;
+        if ('touches' in e && e.touches.length > 0) {
             clientX = e.touches[0].clientX;
             clientY = e.touches[0].clientY;
+        } else if ('changedTouches' in e && (e as TouchEvent).changedTouches?.length) {
+            clientX = (e as TouchEvent).changedTouches[0].clientX;
+            clientY = (e as TouchEvent).changedTouches[0].clientY;
         } else {
             clientX = (e as React.MouseEvent).clientX;
             clientY = (e as React.MouseEvent).clientY;
         }
 
-        // Scale mouse coordinates to match actual canvas resolution
-        const scaleX = canvasRef.current.width / rect.width;
-        const scaleY = canvasRef.current.height / rect.height;
-
         return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
+            x: clientX - rect.left,
+            y: clientY - rect.top,
         };
     };
 
@@ -312,7 +317,16 @@ export function LiveWhiteboard({ socket, sessionId, isMentor, onClose }: LiveWhi
                 </div>
 
                 {onClose && (
-                    <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all">
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onClose();
+                        }}
+                        className="relative z-20 p-1.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all shrink-0"
+                        title="Doskani yopish"
+                    >
                         <X className="w-5 h-5" />
                     </button>
                 )}

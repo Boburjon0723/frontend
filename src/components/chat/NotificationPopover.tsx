@@ -13,7 +13,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onClose }) =>
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
     return (
-        <div className="absolute right-4 top-16 w-[360px] max-h-[600px] glass-premium bg-white/10 backdrop-blur-[40px] border border-white/20 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col z-[1000] overflow-hidden animate-notification">
+        <div className="absolute right-4 top-16 w-[360px] max-h-[600px] glass-premium bg-white/10 backdrop-blur-[40px] border border-white/20 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col z-[1000] overflow-hidden animate-slide-popover-right">
             {/* Header */}
             <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">
                 <div className="flex items-center gap-3">
@@ -59,7 +59,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onClose }) =>
                         <div
                             key={notification.id}
                             style={{ animationDelay: `${index * 50}ms` }}
-                            className={`p-5 border-b border-white/5 hover:bg-white/10 transition-all cursor-pointer relative group animate-notification ${!notification.is_read ? 'bg-blue-500/5' : ''}`}
+                            className={`p-5 border-b border-white/5 hover:bg-white/10 transition-all cursor-pointer relative group animate-slide-popover-right ${!notification.is_read ? 'bg-blue-500/5' : ''}`}
                             onClick={() => !notification.is_read && markAsRead(notification.id)}
                         >
                             {!notification.is_read && (

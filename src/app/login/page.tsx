@@ -234,20 +234,19 @@ function Login() {
           <div className="space-y-6 md:space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.25em] text-blue-200/70">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>MessenjrAli</span>
+              <span>ExpertLine · ekspertlar va mijozlar</span>
             </div>
 
             <div>
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight">
-                Chegarasiz muloqotga{" "}
+                Xizmatlarga{" "}
                 <span className="bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
                   qaytish
                 </span>
               </h1>
               <p className="mt-4 text-sm md:text-base text-slate-300/80 max-w-md leading-relaxed">
-                Telefon raqamingiz bilan tizimga kiring va MessenjrAli ekotizimida
-                do&apos;stlaringiz, hamkorlaringiz va mijozlaringiz bilan
-                xavfsiz muloqotni davom ettiring.
+                Telefon raqamingiz bilan kiring: mutaxassislarni toping yoki o‘zingizning mijozlaringiz bilan jonli dars,
+                maslahat, xabarlar va hamyon — bitta platformada.
               </p>
               {desktopUrl && (
                 <div className="mt-5">
@@ -256,7 +255,7 @@ function Login() {
                     onClick={handleDesktopDownloadClick}
                     className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs md:text-sm font-medium text-sky-200 hover:bg-white/10 hover:border-sky-400/60 transition-colors"
                   >
-                    Windows uchun MessenjrAli Desktop ilovasini yuklab olish
+                    Windows uchun ExpertLine Desktop ilovasini yuklab olish
                   </button>
                 </div>
               )}

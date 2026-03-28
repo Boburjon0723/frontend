@@ -548,7 +548,7 @@ export default function AdminPanel() {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
                 <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 w-full max-w-md shadow-3xl">
-                    <h1 className="text-3xl font-bold bg-linear-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2 text-center">Mali Admin</h1>
+                    <h1 className="text-3xl font-bold bg-linear-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2 text-center">ExpertLine Admin</h1>
                     <p className="text-slate-500 text-center mb-8">Tizimga kirish uchun ruxsat kerak</p>
                     <form onSubmit={handleAdminLogin} className="space-y-5">
                         <div className="space-y-1">

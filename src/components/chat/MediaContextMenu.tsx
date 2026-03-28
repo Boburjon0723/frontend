@@ -109,8 +109,8 @@ export default function MediaContextMenu({
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'MessenjrAli',
-                    text: message.type === 'text' ? message.text : 'MessenjrAli orqali fayl ulashildi',
+                    title: 'ExpertLine',
+                    text: message.type === 'text' ? message.text : 'ExpertLine orqali fayl ulashildi',
                     url: isMedia ? mediaUrl : window.location.href,
                 });
             } catch (err) {

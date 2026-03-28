@@ -1,6 +1,7 @@
 import { getToken, getRefreshToken, getStorageForAuth, setAuth, clearAuth, getUser } from './auth-storage';
+import { getPublicApiUrl } from './public-origin';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+const API_URL = getPublicApiUrl();
 
 interface FetchOptions extends RequestInit {
     headers?: Record<string, string>;

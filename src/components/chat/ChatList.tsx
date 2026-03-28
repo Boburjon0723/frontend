@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { getExpertPanelMode } from '@/lib/expert-roles';
 import { GlassCard } from '../ui/GlassCard';
 import JobsPanel from '../jobs/JobsPanel';
 import { useSocket } from '@/context/SocketContext';
+import { useHorizontalNavWheel } from '@/hooks/useHorizontalNavWheel';
 import {
     Globe,
     User,
@@ -148,6 +150,8 @@ export default function ChatList({
     // Swipe navigation (mobile) between categories
     const touchStartX = useRef<number | null>(null);
     const touchStartY = useRef<number | null>(null);
+    const categoryNavRef = useRef<HTMLDivElement | null>(null);
+    useHorizontalNavWheel(categoryNavRef, true);
 
     const handleCategoryChange = (catId: string) => {
         if (onCategoryChange) onCategoryChange(catId);
@@ -240,11 +244,11 @@ export default function ChatList({
     };
 
     return (
-        <div className={`h-full flex flex-col relative overflow-hidden select-none animate-fade-in rounded-3xl ${className || ''}`}>
+        <div className={`h-full min-w-0 flex flex-col relative overflow-hidden select-none animate-fade-in rounded-3xl ${className || ''}`}>
             {/* iOS Style Sidebar Drawer */}
 
             {/* Sticky Header / Search / Categories Container */}
-            <div className={`sticky top-0 z-20 backdrop-blur-xl border-b border-white/5 bg-white/15 ${(hideHeader && hideCategories) ? 'hidden lg:block' : 'block'}`}>
+            <div className={`sticky top-0 z-20 min-w-0 w-full backdrop-blur-xl border-b border-white/5 bg-white/15 ${(hideHeader && hideCategories) ? 'hidden lg:block' : 'block'}`}>
                 {/* Header / Search部 */}
                 <div className={`p-4 flex-col gap-4 ${hideHeader ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'}`}>
                     <div className="flex items-center justify-between">
@@ -265,7 +269,13 @@ export default function ChatList({
                         {mounted && currentUser?.is_expert ? (
                             <button
                                 onClick={onToggleExpertMode}
-                                title={isExpertMode ? "Mijoz ko'rinishi" : "Ekspert paneli"}
+                                title={
+                                    isExpertMode
+                                        ? "Mijoz ko'rinishi"
+                                        : getExpertPanelMode(currentUser) === 'mentor'
+                                          ? "Ustoz paneli"
+                                          : "Xizmat paneli"
+                                }
                                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${isExpertMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/10 text-white/50 hover:bg-white/20'}`}
                             >
                                 <Layout className="h-5 w-5" />
@@ -296,7 +306,10 @@ export default function ChatList({
                 </div>
 
                 {/* Categories - Horizontally scrollable on all devices */}
-                <div className={`flex gap-4 overflow-x-auto no-scrollbar mask-overflow mb-2 flex-nowrap shrink-0 px-4 py-3 border-b border-white/5 ${hideCategories ? 'hidden lg:flex' : 'flex'}`}>
+                <div
+                    ref={categoryNavRef}
+                    className={`nav-scroll-x flex gap-4 mb-2 flex-nowrap shrink-0 px-4 py-3 border-b border-white/5 min-w-0 w-full ${hideCategories ? 'hidden lg:flex' : 'flex'}`}
+                >
                     {CATEGORIES.map(cat => {
                         const count = getCategoryUnreadCount(cat.id);
                         return (
@@ -411,7 +424,15 @@ export default function ChatList({
                         const isTrade = chat.isTrade;
                         const isUsernameSearchResult = searchQuery && (chat.type === 'contact' || chat.isGlobal) && (chat.username || chat.message === 'Foydalanuvchi nomi');
                         let displayName = isUsernameSearchResult ? `@${chat.username}` : chat.name;
-                        let subtitle = isTrade ? 'Savdo muloqoti' : (chat.message?.includes('darsni boshladi') && !chat.message?.startsWith('🚀') ? `🚀 ${chat.message}` : chat.message);
+                        const isLiveSessionPreview =
+                            (chat.message?.includes('darsni boshladi') ||
+                                chat.message?.includes('sessiyasini boshladi')) &&
+                            !chat.message?.startsWith('🚀');
+                        let subtitle = isTrade
+                            ? 'Savdo muloqoti'
+                            : isLiveSessionPreview
+                              ? `🚀 ${chat.message}`
+                              : chat.message;
                         if (isUsernameSearchResult) subtitle = 'Foydalanuvchi nomi';
 
                         if (isTrade) {

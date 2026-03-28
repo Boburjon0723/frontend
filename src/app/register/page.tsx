@@ -110,21 +110,20 @@ export default function RegisterPage() {
           <div className="space-y-6 md:space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.25em] text-blue-200/70">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>MessenjrAli</span>
+              <span>ExpertLine · ekspertlar va mijozlar</span>
             </div>
 
             <div>
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight">
                 Yangi{" "}
                 <span className="bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
-                  Mali
+                  ExpertLine
                 </span>{" "}
                 hisobini yarating
               </h1>
               <p className="mt-4 text-sm md:text-base text-slate-300/80 max-w-md leading-relaxed">
-                Bir martalik ro&apos;yxatdan o&apos;tish orqali barcha
-                qurilmalarda xabarlar, guruhlar va qo&apos;ng&apos;iroqlarga
-                kirish imkoniga ega bo&apos;lasiz.
+                Bir martalik ro&apos;yxatdan o&apos;tish — mutaxassis sifatida mijoz qabul qiling yoki oddiy foydalanuvchi
+                sifatida xizmatlardan foydalaning: xabarlar, guruhlar va jonli darslar.
               </p>
             </div>
 
@@ -134,7 +133,7 @@ export default function RegisterPage() {
                 <div className="h-7 w-7 rounded-full border border-slate-900 bg-gradient-to-br from-emerald-400 to-cyan-500" />
                 <div className="h-7 w-7 rounded-full border border-slate-900 bg-gradient-to-br from-fuchsia-500 to-rose-500" />
               </div>
-              <span>Shaxsiy chatlar, jamoaviy kanallar va xavfsiz qo&apos;ng&apos;iroqlar.</span>
+              <span>Onlayn dars, maslahat, shaxsiy va guruh chatlari bir joyda.</span>
             </div>
           </div>
 

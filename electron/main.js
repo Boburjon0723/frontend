@@ -114,7 +114,7 @@ async function checkForUpdates() {
                 buttons: ['Hozir yangilash', 'Keyin'],
                 defaultId: 0,
                 cancelId: 1,
-                title: 'MessenjrAli Desktop yangilanishi',
+                title: 'ExpertLine Desktop yangilanishi',
                 message: `Yangi versiya topildi: ${latestVersion} (hozirgi: ${currentVersion}).`,
                 detail: 'Yangilash paytida dastur qayta ishga tushadi.',
             });

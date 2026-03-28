@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MessenjrAli - Tez va xavfsiz muloqot hamda to'lovlar",
-  description: "iOS-inspired communication and financial platform",
+  title: "ExpertLine — mutaxassislarni toping, xavfsiz muloqot",
+  description:
+    "Mutaxassislar uchun ish prostori, mijozlar uchun qulay kirish: jonli dars, maslahat, chat, kanallar va to'lovlar bitta platformada.",
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",

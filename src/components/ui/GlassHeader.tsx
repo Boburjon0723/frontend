@@ -22,7 +22,7 @@ export const GlassHeader: React.FC<GlassHeaderProps> = ({
                             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                                 <span className="text-white text-lg font-bold">M</span>
                             </div>
-                            <span className="text-white text-xl font-bold tracking-tight hidden sm:block">Mali</span>
+                            <span className="text-white text-xl font-bold tracking-tight hidden sm:block">ExpertLine</span>
                         </Link>
 
                         {/* Center: Title */}

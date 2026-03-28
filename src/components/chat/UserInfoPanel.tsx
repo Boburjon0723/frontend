@@ -210,7 +210,7 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
                     </p>
                 </div>
 
-                {/* Quick Action Buttons Row */}
+                {/* Oddiy harakatlar: Suhbat, Ovoz, Sovg'a (faqat oddiy kontaktlar uchun) */}
                 <div className="flex justify-center gap-2 px-4 mb-8">
                     <ActionButton icon={<MessageCircle className="h-5 w-5" />} label="Suhbat" />
                     <ActionButton icon={<Bell className="h-5 w-5" />} label="Ovoz" />

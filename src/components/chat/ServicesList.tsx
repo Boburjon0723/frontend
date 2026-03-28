@@ -5,8 +5,10 @@ import {
   Star,
   MoreVertical,
   PanelRightOpen,
+  MessageCircle,
 } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
+import { getExpertActionType } from '@/lib/expert-roles';
 
 interface ServicesListProps {
   onStartChat?: (user: any) => void;
@@ -84,6 +86,9 @@ export default function ServicesList({
     selectedExpert?.service_price ||
     selectedExpert?.price ||
     0;
+
+  const isMentorCard =
+    !!selectedExpert && getExpertActionType(selectedExpert) === 'mentor';
 
   return (
     <div className="flex flex-col h-full gap-4 min-h-0 overflow-hidden">
@@ -201,25 +206,61 @@ export default function ServicesList({
                     `Men ${selectedExpert.profession || 'mutaxassis'}man.`}
                 </p>
                 <ul className="list-disc list-inside text-sm text-white/80 space-y-1">
-                  <li>Online darslar</li>
-                  <li>Imtihonga tayyorlash</li>
-                  <li>Individual yondashuv</li>
+                  {isMentorCard ? (
+                    <>
+                      <li>Online darslar va jonli guruh</li>
+                      <li>Imtihonga tayyorlash</li>
+                      <li>Individual yondashuv</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Shaxsiy chat orqali murojaat</li>
+                      <li>Onlayn maslahat va uchrashuv</li>
+                      <li>Xavfsiz muloqot — video sessiya shu chatdan</li>
+                    </>
+                  )}
                 </ul>
               </div>
 
-              {/* Pastki bo‘lim – darslar */}
+              {/* Pastki bo‘lim */}
               <div className="space-y-2 pt-2 border-t border-white/10">
                 <h4 className="text-white/70 text-xs font-black uppercase tracking-[0.25em]">
-                  Darslar
+                  {isMentorCard ? 'Darslar' : 'Xizmat'}
                 </h4>
                 <ul className="list-disc list-inside text-sm text-white/80 space-y-1">
-                  <li>
-                    Men {selectedExpert.profession || 'mutaxassislik'} bo‘yicha
-                    dars beraman
-                  </li>
-                  <li>Online / masofaviy format</li>
-                  <li>Imtihonga tayyorlash va nazorat ishlari</li>
+                  {isMentorCard ? (
+                    <>
+                      <li>
+                        Men {selectedExpert.profession || 'mutaxassislik'} bo‘yicha dars
+                        beraman
+                      </li>
+                      <li>Online / masofaviy format</li>
+                      <li>Imtihonga tayyorlash va nazorat ishlari</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>{selectedExpert.profession || 'Mutaxassis'} bo‘yicha maslahat</li>
+                      <li>Avval chatda yozing — keyin mutaxassis panel orqali uchrashuv</li>
+                      <li>Hujjat va materiallarni chat orqali yuborish mumkin</li>
+                    </>
+                  )}
                 </ul>
+              </div>
+
+              <div className="p-4 pt-2 border-t border-white/10 bg-black/20 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => selectedExpert && onStartChat?.(selectedExpert)}
+                  className="w-full flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 border border-blue-400/30 text-white text-sm font-bold shadow-lg shadow-blue-600/25 transition-all active:scale-[0.99]"
+                >
+                  <MessageCircle className="h-5 w-5 shrink-0" />
+                  {isMentorCard ? 'Chat — yozilish va dars' : 'Maslahat olish — chatni boshlash'}
+                </button>
+                <p className="text-[10px] text-white/45 text-center mt-2 leading-snug">
+                  {isMentorCard
+                    ? 'Suhbatdan keyin ustoz sizni guruhga taklif qilishi mumkin.'
+                    : 'Sizning shaxsiy chattingiz ochiladi; mutaxassis javobidan keyin onlayn uchrashuvni davom ettirasiz.'}
+                </p>
               </div>
             </div>
             </div>

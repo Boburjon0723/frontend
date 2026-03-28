@@ -144,7 +144,7 @@ export default function CreateChannelModal({ onClose, onCreateChannel }: CreateC
                                         />
                                     </div>
                                     <p className="text-[11px] text-white/30 px-1">
-                                        Вы можете выбрать публичную ссылку на <b>MessenjrAli</b>. Люди смогут найти ваш канал по этой ссылке.
+                                        Вы можете выбрать публичную ссылку на <b>ExpertLine</b>. Люди смогут найти ваш канал по этой ссылке.
                                     </p>
                                 </div>
                             )}

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getPublicWsUrl } from '@/lib/public-origin';
 
 interface SocketContextType {
     socket: Socket | null;
@@ -37,7 +38,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const socketURL = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') : 'wss://backend-production-ad05.up.railway.app');
+        const socketURL = getPublicWsUrl();
         console.log(`[SocketContext] Connecting to ${socketURL}...`);
 
         if (socketRef.current) {

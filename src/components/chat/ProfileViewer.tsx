@@ -4,6 +4,7 @@ import { GlassButton } from '../ui/GlassButton';
 import { GlassDatePicker } from '../ui/GlassDatePicker';
 import { useSocket } from '@/context/SocketContext';
 import { getUser, setUser } from '@/lib/auth-storage';
+import { isMentorProfession } from '@/lib/expert-roles';
 import {
     User,
     Bell,
@@ -28,8 +29,6 @@ import {
     Clock,
     DollarSign,
     Heart,
-    Image as ImageIcon,
-    Film,
     FileText,
     Moon,
     CheckCircle,
@@ -132,15 +131,13 @@ export default function ProfileViewer({
     }>({});
     const [servicesJson, setServicesJson] = useState<any[]>([]);
     const [expertGroups, setExpertGroups] = useState<{ id: string, name: string, time: string, chatId?: string }[]>([]);
+    const [availableGroups, setAvailableGroups] = useState<{ id: string, name: string, time: string, chatId?: string }[]>([]);
+    const [availableGroupsLoading, setAvailableGroupsLoading] = useState(false);
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupTime, setNewGroupTime] = useState("10:00");
     const [expertFee, setExpertFee] = useState(50);
 
     const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
-
-    const isMentorProfession = (prof: string) => {
-        return ['O\'qituvchi', 'Mentor', 'Startap mentori', 'Dasturchi mentor'].includes(prof);
-    };
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const diplomaRef = useRef<HTMLInputElement>(null);
@@ -234,6 +231,32 @@ export default function ProfileViewer({
     }, [socket]);
 
     const user = propUser || localUser || {};
+
+    // Load existing group chats for this expert to allow re-using them
+    useEffect(() => {
+        const loadExpertGroups = async () => {
+            if (!user?.id) return;
+            try {
+                setAvailableGroupsLoading(true);
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const res = await fetch(`${API_URL}/api/chats/expert/${user.id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                setAvailableGroups(Array.isArray(data) ? data : []);
+            } catch (e) {
+                console.error('Failed to load expert groups list:', e);
+            } finally {
+                setAvailableGroupsLoading(false);
+            }
+        };
+
+        loadExpertGroups();
+    }, [user?.id]);
 
     const calculateAge = (dob: string) => {
         if (!dob) return null;
@@ -390,7 +413,7 @@ export default function ProfileViewer({
         }
 
         const payload = {
-            is_expert: isExpert,
+            is_expert: true,
             profession,
             specialization_details: specializationDetails,
             specialization: specializationDetails || profession,
@@ -412,8 +435,8 @@ export default function ProfileViewer({
             anketa_url: anketaUrl,
             services_json: JSON.stringify(servicesJson),
             expert_groups: JSON.stringify(updatedGroups),
-            expert_fee_total: expertFee,
-            verified_status: 'pending'
+            expert_fee_total: expertFee
+            // verified_status ni yubormaymiz – backend ma'lumot o'zgarmasa tasdiqni saqlaydi
         };
         const apiPayload = {
             name: user.name,
@@ -434,36 +457,50 @@ export default function ProfileViewer({
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.message || 'Saqlash muvaffaqiyatsiz');
             }
+            // Backend qaysi holatni qaytganini bilish uchun profilni qayta olamiz
+            const profileRes = await fetch(`${apiUrl}/api/users/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const updatedProfile = profileRes.ok ? await profileRes.json() : null;
+            const newStatus = updatedProfile?.verified_status || 'pending';
+
+            if (socket) socket.emit('update_profile', payload);
+            const newUser = { ...user, ...payload, verified_status: newStatus };
+            setLocalUser(newUser);
+            setVerifiedStatus(newStatus);
+            setIsExpert(true);
+            setShowExpertModal(false);
+
+            const userForStorage: any = { ...newUser };
+            delete userForStorage.diploma_url;
+            delete userForStorage.certificate_url;
+            delete userForStorage.id_url;
+            delete userForStorage.selfie_url;
+            delete userForStorage.resume_url;
+            delete userForStorage.anketa_url;
+            try {
+                setUser(userForStorage as Record<string, unknown>);
+            } catch (e) {
+                console.warn('localStorage user quota exceeded, skipping full save', e);
+            }
+
+            if (newStatus === 'approved') {
+                setToast({
+                    type: 'success',
+                    message: "Profil yangilandi. Mutaxassis rejimi faollashtirildi.",
+                });
+            } else {
+                setToast({
+                    type: 'success',
+                    message: "Ma'lumotlar yangilandi. O'zgartirishlar tasdiqlash uchun yuborildi. Admin tasdig'ini kuting.",
+                });
+            }
         } catch (e: any) {
             setToast({
                 type: 'error',
                 message: e?.message || "Server bilan aloqa xatosi. Qayta urinib ko'ring."
             });
-            return;
         }
-        if (socket) socket.emit('update_profile', payload);
-        const newUser = { ...user, ...payload };
-        setLocalUser(newUser);
-        // Avoid storing large base64 fayllarini localStorage ichida saqlash (quota xatosini oldini olish)
-        const userForStorage: any = { ...newUser };
-        delete userForStorage.diploma_url;
-        delete userForStorage.certificate_url;
-        delete userForStorage.id_url;
-        delete userForStorage.selfie_url;
-        delete userForStorage.resume_url;
-        delete userForStorage.anketa_url;
-        try {
-            setUser(userForStorage as Record<string, unknown>);
-        } catch (e) {
-            console.warn('localStorage user quota exceeded, skipping full save', e);
-        }
-        setVerifiedStatus('pending');
-        setIsExpert(true);
-        setShowExpertModal(false);
-        setToast({
-            type: 'success',
-            message: "Mutaxassis ma'lumotlari tasdiqlash uchun yuborildi. Admin tasdig'ini kuting.",
-        });
     };
 
     const handleDocumentUpload = (key: string, file: File) => {
@@ -549,6 +586,51 @@ export default function ProfileViewer({
     };
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+
+    const handleTurnOffExpert = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_URL}/api/users/me`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: user.name,
+                    surname: user.surname || '',
+                    username: user.username || '',
+                    bio: user.bio,
+                    birthday: user.birthday,
+                    avatar_url: user.avatar_url || user.avatar,
+                    is_expert: false,
+                    profession: user.profession,
+                    specialization: user.specialization_details || user.specialization,
+                    experience_years: user.experience_years,
+                    service_price: user.service_price,
+                    hourly_rate: user.hourly_rate,
+                    working_hours: user.working_hours,
+                    languages: user.languages,
+                    wiloyat: user.wiloyat,
+                    tuman: user.tuman,
+                    expert_groups: user.expert_groups
+                })
+            });
+            if (res.ok) {
+                setIsExpert(false);
+                const updated = { ...user, is_expert: false };
+                setLocalUser(updated);
+                try { setUser(updated as Record<string, unknown>); } catch (_) {}
+                setToast({ type: 'success', message: "Mutaxassis rejimi o'chirildi." });
+                if (socket) socket.emit('update_profile', { is_expert: false });
+            }
+        } catch (e) {
+            console.error('Turn off expert error:', e);
+            setToast({ type: 'error', message: "Rejimni o'chirishda xatolik. Qayta urinib ko'ring." });
+        }
+    };
+
     const getAvatarUrl = (path: string) => {
         if (!path) return null;
         if (path.startsWith('http') || path.startsWith('data:')) return path;
@@ -566,8 +648,8 @@ export default function ProfileViewer({
 
     const renderProfile = () => (
         <div
-            className={`w-full h-full lg:h-auto lg:max-w-[420px] flex flex-col lg:max-h-[85vh] overflow-hidden rounded-none lg:rounded-[24px] shadow-2xl animate-scale-up border lg:border-white/10 text-white`}
-            style={{ backgroundColor: `rgba(${bgSettings?.rgb?.r || 28}, ${bgSettings?.rgb?.g || 36}, ${bgSettings?.rgb?.b || 47}, 0.8)`, backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
+            className={`w-full h-full lg:h-auto lg:max-w-[420px] flex flex-col lg:max-h-[85vh] overflow-hidden rounded-none lg:rounded-[24px] shadow-2xl animate-scale-up border border-white/30 text-white`}
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.18)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
             onClick={(e) => e.stopPropagation()}
         >
             {/* Header with Big Image */}
@@ -723,7 +805,7 @@ export default function ProfileViewer({
                                             {telegramLinkCode}
                                         </p>
                                         <p className="mt-1">
-                                            Telegram’da <span className="font-semibold">@MessenjrAli_bot</span> ga <code className="bg-black/30 px-1 rounded">/start</code> yozing, so‘ng ushbu kodni yuboring.
+                                            ExpertLine akkauntini tasdiqlash: Telegram’da <span className="font-semibold">@MessenjrAli_bot</span> ga <code className="bg-black/30 px-1 rounded">/start</code> yozing, so‘ng ushbu kodni yuboring.
                                         </p>
                                     </>
                                 )}
@@ -742,7 +824,12 @@ export default function ProfileViewer({
                                 <Award className={`h-6 w-6 ${isExpert ? 'text-[#00A884]' : 'text-white/20'}`} />
                                 <div className="flex flex-col">
                                     <h4 className="text-white font-bold text-[16px]">Mutaxassis rejimi</h4>
-                                    {verifiedStatus === 'approved' && <span className="text-green-500 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Faollashtirilgan</span>}
+                                    {verifiedStatus === 'approved' && (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-300 text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                                            <CheckCircle className="h-3.5 w-3.5 text-emerald-300" />
+                                            Faollashtirilgan
+                                        </span>
+                                    )}
                                     {verifiedStatus === 'pending' && (
                                         <div className="flex flex-col gap-0.5">
                                             <span className="text-yellow-500 text-[10px] font-bold uppercase tracking-wider">Tekshirilmoqda...</span>
@@ -756,10 +843,11 @@ export default function ProfileViewer({
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     const nextState = !isExpert;
-                                    setIsExpert(nextState);
-                                    if (nextState) setShowExpertModal(true);
-                                    else {
-                                        if (socket) socket.emit('update_profile', { is_expert: false });
+                                    if (nextState) {
+                                        setIsExpert(true);
+                                        setShowExpertModal(true);
+                                    } else {
+                                        handleTurnOffExpert();
                                     }
                                 }}
                             >
@@ -785,24 +873,6 @@ export default function ProfileViewer({
                                 <button onClick={(e) => { e.stopPropagation(); setShowExpertModal(true); }} className="w-full py-3 bg-accent-primary/10 text-[#00A884] text-[13px] font-bold rounded-xl hover:bg-accent-primary/20 transition-all border border-accent-primary/10">Profilni tahrirlash</button>
                             </div>
                         )}
-                    </div>
-                </div>
-
-                {/* Shared Content Mockup */}
-                <div className="px-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h4 className="text-white/40 text-[13px] font-bold uppercase tracking-wider">Shared Media</h4>
-                        <span className="text-[#00A884] text-[12px] font-bold cursor-pointer hover:underline">See All</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                        {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="aspect-square bg-white/5 rounded-lg flex items-center justify-center border border-white/5 group cursor-pointer hover:bg-white/10 transition-all">
-                                {i === 1 ? <ImageIcon className="h-5 w-5 text-white/20 group-hover:text-[#00A884]" /> :
-                                    i === 2 ? <Film className="h-5 w-5 text-white/20 group-hover:text-pink-400" /> :
-                                        i === 3 ? <FileText className="h-5 w-5 text-white/20 group-hover:text-yellow-400" /> :
-                                            <MoreVertical className="h-5 w-5 text-white/20 group-hover:text-white" />}
-                            </div>
-                        ))}
                     </div>
                 </div>
             </div>
@@ -1434,15 +1504,38 @@ export default function ProfileViewer({
                             {/* SECTION 4.5: GROUPS (FOR MENTORS) */}
                             {isMentorProfession(profession) && (
                                 <div className="space-y-4">
-                                    <h4 className="text-emerald-400 font-bold text-xs uppercase tracking-widest border-b border-white/5 pb-2">Guruhlar (Majburiy)</h4>
+                                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                        <h4 className="text-emerald-400 font-bold text-xs uppercase tracking-widest">Guruhlar (Majburiy)</h4>
+                                        {availableGroupsLoading && (
+                                            <span className="text-[10px] text-emerald-200">
+                                                Yuklanmoqda...
+                                            </span>
+                                        )}
+                                    </div>
+
                                     <div className="space-y-3">
+                                        {/* Yangi guruh yaratish */}
                                         <div className="flex gap-2">
-                                            <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Guruh nomi..." className="flex-1 bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent-primary outline-none" />
-                                            <input type="time" value={newGroupTime} onChange={(e) => setNewGroupTime(e.target.value)} className="w-24 bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl px-2 py-3 text-sm text-white focus:border-accent-primary outline-none" />
+                                            <input
+                                                value={newGroupName}
+                                                onChange={(e) => setNewGroupName(e.target.value)}
+                                                placeholder="Guruh nomi..."
+                                                className="flex-1 bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent-primary outline-none"
+                                            />
+                                            <input
+                                                type="time"
+                                                value={newGroupTime}
+                                                onChange={(e) => setNewGroupTime(e.target.value)}
+                                                className="w-24 bg-black/40 backdrop-blur-md shadow-inner border border-white/10 rounded-xl px-2 py-3 text-sm text-white focus:border-accent-primary outline-none"
+                                            />
                                             <button
+                                                type="button"
                                                 onClick={() => {
-                                                    if (newGroupName) {
-                                                        setExpertGroups([...expertGroups, { id: Date.now().toString(), name: newGroupName, time: newGroupTime }]);
+                                                    if (newGroupName.trim()) {
+                                                        setExpertGroups([
+                                                            ...expertGroups,
+                                                            { id: Date.now().toString(), name: newGroupName.trim(), time: newGroupTime }
+                                                        ]);
                                                         setNewGroupName("");
                                                     }
                                                 }}
@@ -1451,6 +1544,8 @@ export default function ProfileViewer({
                                                 <Plus className="h-5 w-5" />
                                             </button>
                                         </div>
+
+                                        {/* Tanlangan guruhlar ro'yxati */}
                                         <div className="space-y-2">
                                             {expertGroups.map((g) => (
                                                 <div key={g.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
@@ -1458,7 +1553,11 @@ export default function ProfileViewer({
                                                         <span className="text-sm font-bold text-white">{g.name}</span>
                                                         <span className="text-[10px] text-white/40">{g.time}</span>
                                                     </div>
-                                                    <button onClick={() => setExpertGroups(expertGroups.filter(x => x.id !== g.id))} className="text-red-400/50 hover:text-red-400 p-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExpertGroups(expertGroups.filter(x => x.id !== g.id))}
+                                                        className="text-red-400/50 hover:text-red-400 p-1"
+                                                    >
                                                         <X className="h-4 w-4" />
                                                     </button>
                                                 </div>
@@ -1469,6 +1568,43 @@ export default function ProfileViewer({
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Mavjud guruhlardan qo'shish */}
+                                        {availableGroups.length > 0 && (
+                                            <div className="space-y-2 pt-3 border-t border-white/5">
+                                                <p className="text-[11px] text-white/40 font-medium">
+                                                    Mavjud guruhlardan qo‘shish
+                                                </p>
+                                                {availableGroups
+                                                    .filter(ag => !expertGroups.some(g => g.chatId === ag.chatId || g.id === ag.id))
+                                                    .map(ag => (
+                                                        <button
+                                                            key={ag.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setExpertGroups([
+                                                                    ...expertGroups,
+                                                                    { id: ag.id, name: ag.name, time: ag.time, chatId: ag.chatId || ag.id }
+                                                                ]);
+                                                            }}
+                                                            className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-400/60 transition-all"
+                                                        >
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-sm text-white font-medium">{ag.name}</span>
+                                                                <span className="text-[10px] text-white/40">{ag.time}</span>
+                                                            </div>
+                                                            <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-200 font-semibold">
+                                                                Qo‘shish
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                                {availableGroups.filter(ag => !expertGroups.some(g => g.chatId === ag.chatId || g.id === ag.id)).length === 0 && (
+                                                    <p className="text-[11px] text-white/30 italic">
+                                                        Barcha mavjud guruhlar allaqachon ro‘yxatga qo‘shilgan.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

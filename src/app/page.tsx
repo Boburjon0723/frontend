@@ -48,19 +48,22 @@ export default function Home() {
         {/* Premium Header Branding */}
         <div className="mb-6 flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-1 text-[11px] uppercase tracking-[0.35em] text-sky-300/80">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold">Premium Connect</span>
+          <span className="font-semibold">Ekspertlar va mijozlar</span>
         </div>
 
         <h1 className="mb-4 text-5xl font-extrabold tracking-tight sm:text-7xl md:text-8xl lg:text-9xl">
           <span className="bg-gradient-to-b from-white via-white to-white/50 bg-clip-text text-transparent">
-            MessenjrAli
+            ExpertLine
           </span>
         </h1>
 
+        <p className="mb-2 max-w-2xl text-sm font-semibold uppercase tracking-[0.15em] text-sky-200/90 sm:text-base sm:tracking-[0.2em]">
+          Mutaxassislarni toping, xavfsiz muloqot
+        </p>
+
         <p className="mb-8 max-w-2xl text-base font-medium text-slate-200/80 sm:text-lg md:text-xl md:leading-relaxed">
-          Chegarasiz muloqot va moliyaviy erkinlik ekotizimiga xush kelibsiz.{" "}
-          <br className="hidden md:block" />
-          Bir platformada chatlar, kanallar va hamyon imkoniyatlari.
+          Oddiy foydalanuvchi sifatida mutaxassisni tanlang; mutaxassis sifatida mijozlaringiz bilan jonli dars,
+          maslahat va hamyon — bitta ekotizimda.
         </p>
 
         {/* CTAs */}
@@ -132,7 +135,7 @@ export default function Home() {
 
       {/* Footer Branding */}
       <div className="pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-[0.45em] text-white/35">
-        MessenjrAli Ecosystem • 2026
+        ExpertLine • ekspertlar va mijozlar • 2026
       </div>
     </div>
   );

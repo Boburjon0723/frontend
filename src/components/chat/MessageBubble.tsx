@@ -30,6 +30,8 @@ interface Message {
 
 interface MessageBubbleProps {
     message: Message;
+    /** lesson_start uchun: guruh chat ID (metadata yo'q bo'lsa shu ishlatiladi) */
+    chatId?: string;
     onReply?: (message: Message) => void;
     isSelecting?: boolean;
     isSelected?: boolean;
@@ -46,7 +48,7 @@ interface MessageBubbleProps {
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
-    message, onReply, isSelecting, isSelected, onSelect,
+    message, chatId, onReply, isSelecting, isSelected, onSelect,
     uploadProgress, onMediaClick, onForward, onDelete,
     isContinuation, onReplyClick, activeAudioId, onAudioPlay, onReact
 }) => {
@@ -370,15 +372,34 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     </div>
                                 </div>
                             </div>
-                        ) : message.type === 'lesson_start' ? (
+                        ) : message.type === 'lesson_start' || message.type === 'consult_panel_invite' ? (
                             <div className="flex flex-col gap-2 min-w-[200px]">
                                 <p className="text-sm leading-relaxed font-semibold text-white">
                                     {renderText()}
                                 </p>
                                 <button
+                                    type="button"
                                     onClick={() => {
-                                        const sessionId = message.metadata?.sessionId || message.metadata?.chatId || message.parentId || message.id;
-                                        window.location.href = `/messages?room=${sessionId}`;
+                                        const raw = message.metadata;
+                                        const meta =
+                                            typeof raw === 'string'
+                                                ? (() => {
+                                                      try {
+                                                          return JSON.parse(raw) as Record<string, string>;
+                                                      } catch {
+                                                          return {};
+                                                      }
+                                                  })()
+                                                : (raw || {}) as Record<string, string>;
+                                        const sessionId =
+                                            meta.sessionId ||
+                                            meta.chatId ||
+                                            (chatId ? String(chatId) : '');
+                                        if (!sessionId) {
+                                            alert("Xona ID topilmadi. Sahifani yangilab qayta urinib ko'ring.");
+                                            return;
+                                        }
+                                        window.location.href = `/messages?room=${encodeURIComponent(sessionId)}`;
                                     }}
                                     className="mt-2 w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
                                 >
@@ -386,8 +407,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Darsga qo'shilish
+                                    {(() => {
+                                        const raw = message.metadata;
+                                        const meta =
+                                            typeof raw === 'string'
+                                                ? (() => {
+                                                      try {
+                                                          return JSON.parse(raw) as Record<string, string>;
+                                                      } catch {
+                                                          return {};
+                                                      }
+                                                  })()
+                                                : (raw || {}) as Record<string, string>;
+                                        const isConsult =
+                                            message.type === 'consult_panel_invite' ||
+                                            meta.sessionStyle === 'consult' ||
+                                            /\bkonsultatsiy/i.test(message.text || '');
+                                        return isConsult ? 'Uchrashuvga ulanish' : "Darsga qo'shilish";
+                                    })()}
                                 </button>
+                            </div>
+                        ) : message.type === 'lesson_end' ? (
+                            <div className="min-w-[200px] rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-3 py-2.5">
+                                <p className="text-sm font-semibold leading-relaxed text-white">{renderText()}</p>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-1">

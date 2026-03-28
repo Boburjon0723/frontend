@@ -12,6 +12,8 @@ import { LiveWhiteboard } from './LiveWhiteboard';
 
 interface LiveVideoFrameProps {
     isMentor?: boolean;
+    /** false bo'lsa qo'l ko'tarish videolari qatorlari ko'rinmaydi (huquq/psix/konsultant). Default: true — jonli dars. */
+    showClassroomLayout?: boolean;
     isWhiteboardOpen?: boolean;
     socket?: any;
     sessionId?: string;
@@ -30,6 +32,7 @@ const getAvatarUrl = (path: string) => {
 
 export function LiveVideoFrame({
     isMentor = false,
+    showClassroomLayout = true,
     isWhiteboardOpen = false,
     socket,
     sessionId,
@@ -52,6 +55,8 @@ export function LiveVideoFrame({
     const raisedTracksInOrder = raisedIds
         .map(id => remoteVideoTracks.find(t => t.participant.identity === id))
         .filter((t): t is NonNullable<typeof t> => t != null);
+
+    const showHandRaiseStrip = isMentor && showClassroomLayout && raisedTracksInOrder.length > 0;
 
     // Main Track (Always Mentor)
     const mainTrack = isMentor ? localVideoTrack : (remoteVideoTracks.length > 0 ? remoteVideoTracks[0] : null);
@@ -80,7 +85,7 @@ export function LiveVideoFrame({
                     </div>
 
                     <div className="w-64 shrink-0 h-full bg-[#11131a] border-l border-white/5 flex flex-col p-3 gap-3 overflow-y-auto custom-scrollbar">
-                        {isMentor && raisedTracksInOrder.length > 0 && (
+                        {showHandRaiseStrip && (
                             <div className="shrink-0 space-y-2">
                                 <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">✋ Savol bermoqda</div>
                                 {raisedTracksInOrder.map((track, i) => (
@@ -168,7 +173,7 @@ export function LiveVideoFrame({
                 // --- CLASSIC GRID MODE ---
                 <>
                     {/* Mentor: qo'l ko'targan talabalar videolari — bitta qator, navbat bilan (30 ta bo'lsa ham faqat savol bermoqchilar chiqadi) */}
-                    {isMentor && raisedTracksInOrder.length > 0 && (
+                    {showHandRaiseStrip && (
                         <div className="shrink-0 h-[140px] flex flex-col bg-amber-500/10 border-b border-amber-500/20">
                             <div className="px-3 py-1.5 flex items-center gap-2 border-b border-amber-500/20">
                                 <span className="text-amber-400 text-lg">✋</span>

@@ -2,7 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "Mali Platform Messenger Desktop App",
+  "description": "ExpertLine — mutaxassislarni toping, xavfsiz muloqot (desktop)",
   "author": "Mali Team",
   "main": "electron/main.js",
   "scripts": {
