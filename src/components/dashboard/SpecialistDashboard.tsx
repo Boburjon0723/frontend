@@ -864,10 +864,14 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack, o
         }
     };
 
-    // Yuqori sifat: 48 kHz, echo/noise sozlamalari, 128 kbps Opus (kelajakda video uchun ham konfig qo'shish mumkin)
-    const AUDIO_RECORDING_OPTIONS = {
-        audioBitsPerSecond: 128000 as number, // 128 kbps – yaxshi ovoz sifati
+    // Yozuv: avval video+audio, kamera yo'q bo'lsa audio-only fallback.
+    const RECORDING_OPTIONS = {
+        audioBitsPerSecond: 128000 as number,
+        videoBitsPerSecond: 1200000 as number, // ~1.2 Mbps: sifat/hajm balans
         mimeType: (() => {
+            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) return 'video/webm;codecs=vp9,opus';
+            if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) return 'video/webm;codecs=vp8,opus';
+            if (MediaRecorder.isTypeSupported('video/webm')) return 'video/webm';
             if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
             if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
             return 'audio/mp4';
@@ -983,17 +987,24 @@ export default function SpecialistDashboard({ user, sessionId, socket, onBack, o
                             noiseSuppression: true,
                             autoGainControl: true,
                         },
-                        video: false,
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            frameRate: { ideal: 24, max: 30 },
+                        },
                     });
                 } catch {
                     stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    window.alert("Kamera ruxsati yo'q yoki mavjud emas. Faqat audio yozuv davom etadi.");
                 }
                 recordingStreamRef.current = stream;
                 recordedChunksRef.current = [];
-                const mimeType = AUDIO_RECORDING_OPTIONS.mimeType;
+                const mimeType = RECORDING_OPTIONS.mimeType;
+                const isVideoCapture = stream.getVideoTracks().length > 0 && mimeType.startsWith('video/');
                 const options: MediaRecorderOptions = {
-                    audioBitsPerSecond: AUDIO_RECORDING_OPTIONS.audioBitsPerSecond,
-                    mimeType: mimeType.startsWith('audio/') ? mimeType : undefined,
+                    audioBitsPerSecond: RECORDING_OPTIONS.audioBitsPerSecond,
+                    videoBitsPerSecond: isVideoCapture ? RECORDING_OPTIONS.videoBitsPerSecond : undefined,
+                    mimeType,
                 };
                 const recorder = new MediaRecorder(stream, options);
                 mediaRecorderRef.current = recorder;
