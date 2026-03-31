@@ -1726,7 +1726,9 @@ function DashboardContent({
         setConsultSearchError(null);
         setConsultDdgResult(null);
         try {
-            const res = await fetch(`/api/search/ddg?q=${encodeURIComponent(q)}`);
+            const res = await fetch(
+                `https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1&t=mali_consult`
+            );
             const data = await res.json();
             if (!res.ok) {
                 setConsultSearchError(
