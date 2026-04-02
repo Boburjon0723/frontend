@@ -114,7 +114,7 @@ function MessagesPageContent() {
     // BACKGROUND & THEME SETTINGS
     const [bgBlur, setBgBlur] = useState(8);
     const [bgImageBlur, setBgImageBlur] = useState(20);
-    const [bgImage, setBgImage] = useState("/premium-bg.png");
+    const [bgImage, setBgImage] = useState("/platform-default-bg.png");
     const [isDarkMode, setIsDarkMode] = useState(true);
 
     // Sidebar -> services selected expert

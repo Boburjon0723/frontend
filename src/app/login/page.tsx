@@ -222,10 +222,22 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-[#050505] text-white flex items-start md:items-center justify-center relative overflow-hidden overflow-y-auto pb-safe">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#1d4ed8_0,_transparent_50%),radial-gradient(circle_at_bottom,_#7c3aed_0,_transparent_55%)] opacity-60" />
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-black/90 to-[#020617]" />
+    <div className="min-h-screen min-h-[100dvh] text-white flex items-start md:items-center justify-center relative overflow-hidden overflow-y-auto pb-safe">
+      {/* Platform default fon (messages bilan bir xil manzara) */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url(/platform-default-bg.png)" }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 z-0 bg-[rgba(15,23,42,0.4)] backdrop-blur-[8px] [-webkit-backdrop-filter:blur(8px)]"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_#1d4ed8_0,_transparent_50%),radial-gradient(circle_at_bottom,_#7c3aed_0,_transparent_55%)] opacity-35"
+      />
+      <div aria-hidden className="absolute inset-0 z-0 bg-gradient-to-br from-black/55 via-black/45 to-[#020617]/88" />
 
       {/* Centered card */}
       <div className="relative z-10 w-full max-w-4xl px-4 py-6 sm:py-10 md:py-0">

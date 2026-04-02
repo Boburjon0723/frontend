@@ -9,6 +9,7 @@ import {
     getExpertPanelMode,
     isMentorProfession,
 } from '@/lib/expert-roles';
+import { CHAT_BACKGROUND_PRESETS } from '@/lib/wallpapers';
 import {
     User,
     Bell,
@@ -1092,13 +1093,8 @@ export default function ProfileViewer({
                 {/* WALLPAPER SELECTOR */}
                 <div className="space-y-4">
                     <h4 className="text-accent-primary text-xs font-bold uppercase tracking-widest ml-1">Fon rasmini o'zgartirish</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                        {[
-                            "custom_upload",
-                            "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=2000",
-                            "https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=2000",
-                            "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2000"
-                        ].map((url, i) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {['custom_upload', ...CHAT_BACKGROUND_PRESETS].map((url, i) => (
                             <div key={i}
                                 onClick={() => {
                                     if (url === 'custom_upload') {
@@ -1128,7 +1124,7 @@ export default function ProfileViewer({
                                     </>
                                 ) : (
                                     <div className="relative w-full h-full">
-                                        <img src={url} className="w-full h-full object-cover" />
+                                        <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
                                         {bgSettings?.image === url && (
                                             <div className="absolute inset-0 bg-accent-primary/20 flex items-center justify-center">
                                                 <div className="w-8 h-8 rounded-full bg-accent-primary flex items-center justify-center text-white shadow-lg">

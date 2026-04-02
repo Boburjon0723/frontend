@@ -14,13 +14,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center bg-[#020617] text-white">
-      {/* Base background image (very soft) */}
+      {/* Platform default fon (birinchi kirish / bosh sahifa) */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-1000"
         style={{
-          // TODO: `mali-hero-bg.png` rasmini `public/` papkaga joylang
-          backgroundImage: 'url("/mali-hero-bg.png")',
-          filter: "brightness(0.45) contrast(1.05) saturate(1.1) blur(1.5px)",
+          backgroundImage: "url(/platform-default-bg.png)",
+          filter: "brightness(0.5) contrast(1.05) saturate(1.08) blur(1.5px)",
         }}
       />
 
