@@ -19,6 +19,9 @@ import { readChatMessageCache, writeChatMessageCache, mapApiMessagesToLocal } fr
 // Mock Messages (Initial State)
 const INITIAL_MESSAGES: any[] = [];
 
+/** Pastga avtomatik scroll: foydalanuvchi shu px dan yaqinroqda bo‘lsa */
+const CHAT_NEAR_BOTTOM_PX = 72;
+
 interface ChatWindowProps {
     chat?: any;
     chats?: any[];
@@ -757,7 +760,9 @@ export default function ChatWindow({
     }, []);
 
     const messagesScrollRef = useRef<HTMLDivElement>(null);
+    /** State — UI; ref — messages effect dependency bo‘lmasin (aks holda tepaga scroll qilinsa effect qayta ishlab !hasAppended bilan pastga tortadi) */
     const [isNearBottom, setIsNearBottom] = useState(true);
+    const isNearBottomRef = useRef(true);
     const [newMessagesWhileUp, setNewMessagesWhileUp] = useState(0);
     const prevMessagesLengthRef = useRef(0);
     const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
@@ -780,6 +785,7 @@ export default function ChatWindow({
         prevMessagesLengthRef.current = cached.length;
         setNewMessagesWhileUp(0);
         setIsNearBottom(true);
+        isNearBottomRef.current = true;
         if (cached.length) {
             const el = messagesScrollRef.current;
             if (el) {
@@ -793,18 +799,26 @@ export default function ChatWindow({
     useEffect(() => {
         const prevLen = prevMessagesLengthRef.current;
         const hasAppended = messages.length > prevLen;
-        if (isNearBottom || !hasAppended) {
+        const near = isNearBottomRef.current;
+
+        if (hasAppended) {
+            if (near) {
+                scrollToBottom('auto');
+                setNewMessagesWhileUp(0);
+            } else {
+                setNewMessagesWhileUp((c) => c + (messages.length - prevLen));
+            }
+        } else if (near) {
+            // Uzunlik o‘zgarmagan/yetakchi patch (o‘qilgan, optimistic): faqat foydalanuvchi allaqachon pastda bo‘lsa
             scrollToBottom('auto');
-            if (newMessagesWhileUp) setNewMessagesWhileUp(0);
-        } else if (hasAppended) {
-            setNewMessagesWhileUp((c) => c + (messages.length - prevLen));
+            setNewMessagesWhileUp(0);
         }
+
         prevMessagesLengthRef.current = messages.length;
-        // Har bir o'zgarishda ushbu chat uchun lokal cache ni ham yangilab boramiz
         if (chat?.id && messages.length) {
             writeChatMessageCache(chat.id, messages);
         }
-    }, [messages, chat?.id, isNearBottom, newMessagesWhileUp]);
+    }, [messages, chat?.id]);
 
     const toggleMute = () => {
         setIsMuted(prev => {
@@ -898,7 +912,12 @@ export default function ChatWindow({
                     const mapped = mapApiMessagesToLocal(history);
                     setMessages(mapped);
                     writeChatMessageCache(chat.id, mapped);
-                    setTimeout(() => scrollToBottom('auto'), 50);
+                    setTimeout(() => {
+                        const el = messagesScrollRef.current;
+                        if (!el) return;
+                        const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+                        if (dist < CHAT_NEAR_BOTTOM_PX) scrollToBottom('auto');
+                    }, 50);
                     markAsRead(); // Mark as read when history is fetched
                 }
             } catch (err) { console.error(err); }
@@ -1203,7 +1222,8 @@ export default function ChatWindow({
         const el = messagesScrollRef.current;
         if (!el) return;
         const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-        const nearBottomNow = distanceToBottom < 56;
+        const nearBottomNow = distanceToBottom < CHAT_NEAR_BOTTOM_PX;
+        isNearBottomRef.current = nearBottomNow;
         setIsNearBottom(nearBottomNow);
         if (nearBottomNow && newMessagesWhileUp) {
             setNewMessagesWhileUp(0);
@@ -1229,6 +1249,7 @@ export default function ChatWindow({
 
     const jumpToLatestMessage = useCallback(() => {
         scrollToBottom('smooth');
+        isNearBottomRef.current = true;
         setIsNearBottom(true);
         setNewMessagesWhileUp(0);
     }, []);
@@ -1704,7 +1725,13 @@ export default function ChatWindow({
                                 }}
                                 onFocus={() => {
                                     setInputFocused(true);
-                                    setTimeout(() => scrollToBottom('auto'), 100);
+                                    setTimeout(() => {
+                                        const el = messagesScrollRef.current;
+                                        if (!el) return;
+                                        if (el.scrollHeight - el.scrollTop - el.clientHeight < CHAT_NEAR_BOTTOM_PX) {
+                                            scrollToBottom('auto');
+                                        }
+                                    }, 100);
                                 }}
                                 onBlur={() => setInputFocused(false)}
                                 onKeyPress={e => e.key === 'Enter' && sendMessage()}

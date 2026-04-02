@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import {
     Volume2, Settings, Gift, Users, Shield, LogOut,
@@ -16,15 +16,25 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
     const [loading, setLoading] = useState(false);
     const [fullChatDetails, setFullChatDetails] = useState<any>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const lastFetchedChannelIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         setCurrentUser(user);
+    }, []);
 
-        if (chat && (chat.type === 'channel' || chat.type === 'group')) {
-            fetchChatDetails();
+    useEffect(() => {
+        if (!chat) {
+            setFullChatDetails(null);
+            lastFetchedChannelIdRef.current = null;
+            return;
         }
-    }, [chat]);
+        if (chat.type !== 'channel') return;
+        const id = String(chat.id || chat._id);
+        if (lastFetchedChannelIdRef.current === id) return;
+        lastFetchedChannelIdRef.current = id;
+        fetchChatDetails();
+    }, [chat?.id, chat?.type]);
 
     const fetchChatDetails = async () => {
         if (!chat) return;
@@ -53,16 +63,16 @@ export default function ChannelInfoPanel({ chat, onClose }: ChannelInfoPanelProp
     const adminCount = 1; // Default for now
 
     return (
-        <div className="lg:h-full lg:static fixed inset-0 z-[100] flex flex-col bg-[#788296]/25 backdrop-blur-xl lg:bg-transparent lg:border-l lg:border-white/5 overflow-hidden animate-slide-left">
+        <div className="lg:h-full lg:min-h-0 lg:flex-1 lg:static fixed inset-0 z-[100] flex flex-col overflow-hidden max-lg:bg-white/[0.07] max-lg:backdrop-blur-2xl max-lg:backdrop-saturate-150 lg:bg-transparent lg:border-l lg:border-white/5 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:pt-0 lg:pb-0">
             {/* Close Button Top Right for consistency */}
             <button
                 onClick={onClose}
-                className="absolute top-4 right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all"
+                className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all lg:top-4"
             >
                 <X className="h-6 w-6" />
             </button>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar flex flex-col items-center">
                 {/* Channel Header */}
                 <div className="flex flex-col items-center pt-8 pb-6 px-4 w-full">
                     <div className="relative group">

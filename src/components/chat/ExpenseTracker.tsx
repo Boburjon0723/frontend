@@ -144,7 +144,7 @@ export default function ExpenseTracker() {
     };
 
     return (
-        <div className="h-full flex flex-col gap-6 p-4 md:p-6 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 min-h-0 h-full flex flex-col gap-6 p-4 md:p-6 overflow-y-auto overscroll-y-contain custom-scrollbar">
             {/* HEADER */}
             <div className="flex justify-between items-start">
                 <div>

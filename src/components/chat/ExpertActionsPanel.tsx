@@ -20,12 +20,10 @@ export default function ExpertActionsPanel({ expert, onClose }: ExpertActionsPan
   const serviceTerms = getClientServiceTerms(actionType);
 
   return (
-    <div className="fixed lg:relative inset-0 lg:inset-auto z-[70] lg:z-0 h-full w-full flex flex-col bg-[#788296]/25 lg:bg-transparent backdrop-blur-[20px] lg:backdrop-blur-none border-l-0 lg:border-l lg:border-white/20 overflow-hidden animate-slide-left select-none relative">
-      <div className="lg:hidden absolute inset-0 bg-slate-900/40 -z-10" />
-
+    <div className="fixed lg:relative inset-0 lg:inset-auto z-[70] lg:z-0 h-full min-h-0 w-full flex flex-col max-lg:bg-white/[0.07] max-lg:backdrop-blur-2xl max-lg:backdrop-saturate-150 lg:bg-transparent lg:backdrop-blur-none border-l-0 lg:border-l lg:border-white/20 overflow-hidden animate-slide-left select-none relative pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:pt-0 lg:pb-0">
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all"
+        className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all lg:top-4"
       >
         <X className="h-6 w-6" />
       </button>

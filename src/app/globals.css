@@ -100,6 +100,8 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Mobil status bar / overscroll: och rasmdan oldin qorong‘i qatlam (oq “yo‘nalish” bo‘lmaydi) */
+  background-color: #0f172a;
   /* Snowy Mountain Background for Cold Theme */
   background-image: url("https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=2676&auto=format&fit=crop");
   background-size: cover;
@@ -318,6 +320,32 @@ body::before {
   background: transparent;
 }
 
+/* Messages: kategoriya pager — brauzer snap ishlamasa ham o‘rtada qolmasin */
+.messages-category-pager {
+  display: flex;
+  flex-flow: row nowrap;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+
+.messages-category-pager > .messages-category-pager-slide {
+  box-sizing: border-box;
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
 @keyframes shake {
 
   0%,
@@ -447,13 +475,58 @@ body::before {
   will-change: transform, opacity;
 }
 
+/** Guruh/kanal/shaxs info paneli — o‘ngdan kirish (chat karusel bilan bir xil ritm) */
+.chat-info-panel-enter {
+  animation: chat-carousel-enter-right 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .chat-carousel-panel-exit,
-  .chat-carousel-panel-enter {
+  .chat-carousel-panel-enter,
+  .chat-info-panel-enter,
+  .chat-list-category-transition-next,
+  .chat-list-category-transition-prev {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+/** ChatList: yuqori kategoriya (yoki ro‘yxatda swipe) almashganda kontent oqimi */
+@keyframes chat-list-category-from-right {
+  from {
+    opacity: 0.82;
+    transform: translateX(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes chat-list-category-from-left {
+  from {
+    opacity: 0.82;
+    transform: translateX(-18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.chat-list-category-transition-next {
+  animation: chat-list-category-from-right 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+  will-change: transform, opacity;
+}
+
+.chat-list-category-transition-prev {
+  animation: chat-list-category-from-left 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+  will-change: transform, opacity;
 }
 
 @keyframes highlight-pulse {

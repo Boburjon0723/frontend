@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import ChatList, { CATEGORIES } from "@/components/chat/ChatList";
 import ChatCarouselPanel from "@/components/chat/ChatCarouselPanel";
 import GroupInfoPanel from "@/components/chat/GroupInfoPanel";
@@ -83,8 +83,11 @@ function MessagesPageContent() {
     const [chats, setChats] = useState<any[]>([]);
     const [contacts, setContacts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showRightPanel, setShowRightPanel] = useState(true);
+    /** Dastlab yopiq: avval chat; info faqat header bosilganda (mobil animatsiya, desktop yon panel) */
+    const [showRightPanel, setShowRightPanel] = useState(false);
     const [isExpertMode, setIsExpertMode] = useState(false);
+    /** SSR / birinchi kadr: doim false — keyin useLayoutEffect */
+    const [isMobile, setIsMobile] = useState(false);
     const searchParams = useSearchParams();
     const roomParam = searchParams.get('room');
     /** Guruhga qo'shilgandan keyin chatni ochish (?room= emas — RoomAccessGate ishlamasin) */
@@ -138,6 +141,20 @@ function MessagesPageContent() {
         if (savedTheme) setIsDarkMode(savedTheme === 'dark');
     }, []);
 
+    // Mobile / Desktop — Tailwind `lg` (1024px); layout effect: paint oldin to‘g‘ri `isMobile`
+    useLayoutEffect(() => {
+        const update = () => setIsMobile(window.innerWidth < 1024);
+        update();
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, []);
+
+    /** Mobil: boshqa chat tanlanganda avval suhbat oynasi — info yopiladi (desktopda yon panel ochiq qolishi mumkin) */
+    useEffect(() => {
+        if (!isMobile || !selectedChat) return;
+        setShowRightPanel(false);
+    }, [isMobile, selectedChat?.id]);
+
     const updateBgBlur = (val: number) => {
         setBgBlur(val);
         localStorage.setItem('app-bg-blur', val.toString());
@@ -165,6 +182,7 @@ function MessagesPageContent() {
             const roomChat = chats.find((c: any) => String(c.id) === gid);
             if (roomChat) setSelectedChat(roomChat);
             else setSelectedChat(lessonGroupPlaceholder(gid));
+            setShowRightPanel(false);
             setIsExpertMode(true);
             setActiveCategory('all');
         },
@@ -228,6 +246,12 @@ function MessagesPageContent() {
             alert('Xatolik yuz berdi. Qayta urinib ko‘ring.');
         }
     }, [isExpertMode, currentUser, selectedChat, openMentorPanelForGroup]);
+
+    const handleCategoryNavChange = useCallback((catId: string) => {
+        setActiveCategory(catId);
+        if (catId !== 'all') setSelectedChat(null);
+        if (catId === 'wallet') setIsExpertMode(false);
+    }, []);
 
     // FETCH CHATS (refresh = true: backend cache dan o'tkazmaydi)
     const fetchChats = useCallback(async (refresh = false) => {
@@ -334,6 +358,7 @@ function MessagesPageContent() {
                 };
                 if (chatId) void prefetchChatMessagesCache(chatId);
                 setSelectedChat(fullChat);
+                setShowRightPanel(false);
                 setActiveCategory('all');
                 setIsExpertMode(false);
             }
@@ -380,7 +405,8 @@ function MessagesPageContent() {
                     setChats(prev => [mappedNew, ...prev]);
                     if (id) void prefetchChatMessagesCache(id);
                     setSelectedChat(mappedNew);
-                    setShowRightPanel(true);
+                    /** Desktop: guruh profili yon panelda; mobil: avval chat (useEffect ham yopadi) */
+                    setShowRightPanel(typeof window !== 'undefined' && window.innerWidth >= 1024);
                     setIsExpertMode(false);
                 }
                 await fetchChats(true);
@@ -499,6 +525,7 @@ function MessagesPageContent() {
                 if (roomParam) {
                     console.log("[MessagesPage] Room parameter detected:", roomParam);
                     setIsExpertMode(false);
+                    setShowRightPanel(false);
                     setSelectedChat(lessonGroupPlaceholder(String(roomParam)));
                 }
             }
@@ -603,6 +630,7 @@ function MessagesPageContent() {
         const full = chats.find((c: any) => String(c.id) === String(selectedChat.id));
         if (!full) return;
         setSelectedChat(full);
+        setShowRightPanel(false);
         setIsExpertMode(false);
     }, [chats, selectedChat?._lessonPlaceholder, selectedChat?.id, currentUser]);
 
@@ -662,6 +690,7 @@ function MessagesPageContent() {
                         String(roomChat.creator_id ?? roomChat.creatorId ?? '') === String(currentUser.id);
                     if (roomChat) {
                         setSelectedChat(roomChat);
+                        setShowRightPanel(false);
                         setIsExpertMode(false);
                         if (!isMentorOwner && roomParam) {
                             setStudentLiveRoomId(String(roomParam));
@@ -669,6 +698,7 @@ function MessagesPageContent() {
                         }
                     } else {
                         setSelectedChat(lessonGroupPlaceholder(String(roomParam)));
+                        setShowRightPanel(false);
                         setIsExpertMode(false);
                     }
                 }
@@ -695,6 +725,7 @@ function MessagesPageContent() {
         const chat = chats.find((c: any) => String(c.id) === String(openChatParam));
         if (!chat) {
             setSelectedChat(lessonGroupPlaceholder(String(openChatParam)));
+            setShowRightPanel(false);
             setIsExpertMode(false);
             setActiveCategory('all');
             router.replace('/messages', { scroll: false });
@@ -702,6 +733,7 @@ function MessagesPageContent() {
         }
         if (chat?.id) void prefetchChatMessagesCache(chat.id);
         setSelectedChat(chat);
+        setShowRightPanel(false);
         setIsExpertMode(false);
         setActiveCategory('all');
         router.replace('/messages', { scroll: false });
@@ -747,7 +779,9 @@ function MessagesPageContent() {
     /** Konsultant/ustoz paneli chat tanlamasdan: main oynasi mobilda ham ko'rinsin (oldingi holatda showDetail false → main `hidden`) */
     const showDetail =
         !!selectedChat ||
-        isPanelCategory ||
+        (isPanelCategory &&
+            !(activeCategory === 'services' && !selectedExpertInView) &&
+            !(activeCategory === 'wallet' && isMobile)) ||
         (isExpertMode && !!currentUser?.is_expert);
 
     /** Shaxsiy chat yoki o‘z guruhim: ekspert xizmat paneli. Kanal/guruhda boshqa odam yaratuvchisi bo‘lsa — panel yo‘q. */
@@ -769,6 +803,16 @@ function MessagesPageContent() {
 
     /** Jonli ustoz/konsultant paneli ochilganda o‘ngdagi guruh profili (GroupInfoPanel va hokazo) chiqmasin */
     const hideRightPanelForSpecialistDashboard = showSpecialistDashboard;
+
+    /**
+     * lg dan kichik ekranda: asosiy chatda (`activeCategory === 'all'`) info ochiq bo‘lsa `<main>` yashirinadi.
+     * Servislar/hamyon va h.k. da `selectedChat` qolgan bo‘lsa ham noto‘g‘ri yashirmaslik uchun.
+     */
+    const hideMainUnderChatInfo =
+        activeCategory === 'all' &&
+        showRightPanel &&
+        !!selectedChat &&
+        !hideRightPanelForSpecialistDashboard;
 
     const mobileCategoryNavRef = useRef<HTMLDivElement | null>(null);
     useHorizontalNavWheel(mobileCategoryNavRef, !showDetail);
@@ -886,12 +930,6 @@ function MessagesPageContent() {
                                 <button onClick={() => { setShowMenu(false); setShowContactsModal(true); }} className="w-full flex items-center gap-6 px-6 py-4 hover:bg-white/10 text-white font-medium transition-all group">
                                     <Contact className="h-[22px] w-[22px] text-white/50 group-hover:text-blue-400" /> Contacts
                                 </button>
-                                <button className="w-full flex items-center gap-6 px-6 py-4 hover:bg-white/10 text-white font-medium transition-all group">
-                                    <Bookmark className="h-[22px] w-[22px] text-white/50 group-hover:text-blue-400" /> Saved
-                                </button>
-                                <button onClick={() => { setShowMenu(false); setActiveCategory('bots'); }} className="w-full flex items-center gap-6 px-6 py-4 hover:bg-white/10 text-white font-medium transition-all group">
-                                    <Bot className="h-[22px] w-[22px] text-white/50 group-hover:text-blue-400" /> Botlar
-                                </button>
                                 <button onClick={() => { setShowMenu(false); setActiveCategory('settings'); }} className="w-full flex items-center gap-6 px-6 py-4 hover:bg-white/10 text-white font-medium transition-all group">
                                     <Settings className="h-[22px] w-[22px] text-white/50 group-hover:text-blue-400" /> Settings
                                 </button>
@@ -927,7 +965,7 @@ function MessagesPageContent() {
 
                 {/* Global Mobile Header - Only visible on mobile, hidden when chat is open */}
                 {!showDetail && (
-                    <div className="lg:hidden sticky top-0 z-50 glass-premium shadow-lg !border-t-0 !border-x-0 !rounded-none pt-[max(2.5rem,env(safe-area-inset-top))]">
+                    <div className="lg:hidden sticky top-0 z-50 glass-premium bg-[#0f1117]/80 shadow-lg !border-t-0 !border-x-0 !rounded-none pt-[max(2.5rem,env(safe-area-inset-top))]">
                         <div className="p-4 pb-1 pt-0 flex flex-col gap-4">
                             <div className="flex items-center justify-between">
                                 <button type="button" onClick={() => setShowMenu(true)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white"><MenuIcon className="h-6 w-6" /></button>
@@ -978,8 +1016,13 @@ function MessagesPageContent() {
                             ref={mobileCategoryNavRef}
                             className="nav-scroll-x flex gap-4 px-4 py-3 mb-2 flex-nowrap border-b border-white/5 min-w-0 w-full lg:flex"
                         >
-                            {CATEGORIES.map(cat => (
-                                <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white' : 'bg-white/5 text-white/40'}`}>
+                            {CATEGORIES.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => handleCategoryNavChange(cat.id)}
+                                    className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-colors duration-150 ${activeCategory === cat.id ? 'bg-[#3b82f6] text-white' : 'bg-white/5 text-white/40'}`}
+                                >
                                     <div className="w-6 h-6">{cat.icon}</div>
                                 </button>
                             ))}
@@ -988,15 +1031,16 @@ function MessagesPageContent() {
                 )}
 
                 {/* Left Panel: ChatList */}
-                <aside className={` ${showDetail ? 'hidden lg:flex' : 'flex'} ${isExpertMode ? 'lg:w-0 lg:p-0 w-0 p-0 opacity-0 pointer-events-none absolute lg:relative z-0' : 'lg:w-[380px] lg:px-4 w-full px-2 opacity-100 relative z-10'} transition-all duration-500 ease-in-out lg:h-full flex-none min-w-0 flex-col overflow-hidden `}>
+                <aside className={` ${showDetail ? 'hidden lg:flex' : 'flex'} ${isExpertMode ? 'lg:w-0 lg:p-0 w-0 p-0 opacity-0 pointer-events-none absolute lg:relative z-0' : 'lg:w-[380px] lg:px-4 w-full px-2 opacity-100 relative z-10'} transition-all duration-500 ease-in-out lg:h-full flex-1 min-h-0 lg:flex-none lg:min-h-0 min-w-0 flex-col overflow-hidden `}>
                     <ChatList
                         activeCategory={activeCategory}
-                        onCategoryChange={setActiveCategory}
+                        onCategoryChange={handleCategoryNavChange}
                         onChatSelect={(chat) => {
                             if (chat?.id != null) void prefetchChatMessagesCache(chat.id);
                             setSelectedChat(chat);
                             if (activeCategory !== 'all') setActiveCategory('all');
-                            if (window.innerWidth < 1024) setShowRightPanel(false);
+                            /** Har doim avval chat; info faqat headerdan */
+                            setShowRightPanel(false);
                             // Guruhga kirganda mentor paneli avtomatik ochilmasin — faqat Layout (ekspert) tugmasi
                             setIsExpertMode(false);
                         }}
@@ -1023,6 +1067,7 @@ function MessagesPageContent() {
                         showNotifications={showNotifications}
                         setShowNotifications={setShowNotifications}
                         unreadCount={unreadCount}
+                            isMobile={isMobile}
                         onExpertSelect={(exp) => {
                             setSelectedExpertFromSidebar(exp);
                             setSelectedExpertInView(exp);
@@ -1031,22 +1076,28 @@ function MessagesPageContent() {
                     />
                 </aside>
 
-                <main className={` ${!showDetail ? 'hidden lg:block' : 'w-full'} flex-1 min-h-0 h-full min-w-0 relative overflow-hidden flex flex-col`}>
+                <main
+                    className={
+                        hideMainUnderChatInfo
+                            ? 'hidden lg:flex lg:flex-col flex-1 min-h-0 h-full min-w-0 relative overflow-hidden w-full'
+                            : ` ${!showDetail ? 'hidden lg:block' : 'w-full'} flex-1 min-h-0 h-full min-w-0 relative overflow-hidden flex flex-col`
+                    }
+                >
                     {activeCategory === 'jobs' ? (
-                        <div className="flex flex-col h-full overflow-hidden">
-                            <header className="lg:hidden p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
+                        <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+                            <header className="lg:hidden shrink-0 p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
                                 <button onClick={() => setActiveCategory('all')} className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 shadow-lg">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                                 </button>
                                 <h2 className="text-white font-bold">Ish qidirish</h2>
                             </header>
-                            <div className="w-full h-full p-4 overflow-hidden">
+                            <div className="flex-1 min-h-0 w-full flex flex-col p-4 overflow-hidden">
                                 <JobsPanel />
                             </div>
                         </div>
                     )
                         : activeCategory === 'services' ? (
-                            <div className="flex flex-col h-full overflow-hidden">
+                            <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
                                 {/* Desktop: chatlar ro'yxatiga qaytish (oldingi holatda tugma yo'q edi) */}
                                 <header className="hidden lg:flex shrink-0 items-center gap-3 px-4 py-3 border-b border-white/10 bg-[#14161c]/90 backdrop-blur-xl">
                                     <button
@@ -1069,18 +1120,30 @@ function MessagesPageContent() {
                                             : 'Ekspert tanlang'}
                                     </h2>
                                 </header>
-                                <header className="lg:hidden p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
-                                    <button onClick={() => {
-                                        setActiveCategory('all');
-                                        setSelectedExpertInView(null);
-                                        setSelectedExpertFromSidebar(null);
-                                        setShowRightPanel(false);
-                                    }} className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 shadow-lg">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                                <header className="lg:hidden shrink-0 p-4 border-b border-white/5 flex items-center gap-3 bg-transparent pt-[max(2rem,env(safe-area-inset-top))]">
+                                    <button
+                                        onClick={() => {
+                                            // Mobile: ekspert tanlanmagan holatga qaytish (1-rasm)
+                                            setActiveCategory('services');
+                                            setSelectedExpertInView(null);
+                                            setSelectedExpertFromSidebar(null);
+                                            setShowRightPanel(false);
+                                        }}
+                                        className="flex items-center p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 shadow-lg"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                        </svg>
                                     </button>
-                                    <h2 className="text-white font-bold">Xizmatlar</h2>
+                                    <span className="text-white/30 text-sm">|</span>
+                                    <h2 className="text-white font-bold text-base truncate max-w-[calc(100%-110px)]">
+                                        {(selectedExpertInView
+                                            ? `${selectedExpertInView.name || ''} ${selectedExpertInView.surname || ''}`.trim()
+                                            : ''
+                                        ) || 'Profil'}
+                                    </h2>
                                 </header>
-                                <div className="w-full h-full p-4 overflow-hidden min-h-0">
+                                <div className="flex-1 min-h-0 w-full flex flex-col p-4 overflow-hidden">
                                     <ServicesList
                                         activeTab="experts"
                                         onStartChat={handleAddContact}
@@ -1093,47 +1156,50 @@ function MessagesPageContent() {
                             </div>
                         )
                             : activeCategory === 'finance' ? (
-                                <div className="flex flex-col h-full overflow-hidden">
-                                    <header className="lg:hidden p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
+                                <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+                                    <header className="lg:hidden shrink-0 p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
                                         <button onClick={() => setActiveCategory('all')} className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 shadow-lg">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                                         </button>
                                         <h2 className="text-white font-bold">Moliya</h2>
                                     </header>
-                                    <div className="w-full h-full p-4 overflow-hidden">
+                                    <div className="flex-1 min-h-0 w-full flex flex-col p-4 overflow-hidden">
                                         <ExpenseTracker />
                                     </div>
                                 </div>
                             )
                                 : activeCategory === 'communities' ? (
-                                    <div className="flex flex-col h-full overflow-hidden">
-                                        <header className="lg:hidden p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
+                                    <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+                                        <header className="lg:hidden shrink-0 p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
                                             <button onClick={() => setActiveCategory('all')} className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 shadow-lg">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                                             </button>
                                             <h2 className="text-white font-bold">Hamjamiyatlar</h2>
                                         </header>
-                                        <div className="w-full h-full p-4 overflow-hidden">
+                                        <div className="flex-1 min-h-0 w-full flex flex-col p-4 overflow-hidden">
                                             <CommunitiesList />
                                         </div>
                                     </div>
                                 )
                                     : activeCategory === 'wallet' ? (
-                                        <div className="flex flex-col h-full overflow-hidden">
-                                            <header className="lg:hidden p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
+                                        <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+                                            <header className="lg:hidden shrink-0 p-4 border-b border-white/5 flex items-center gap-3 bg-[#1a1c20]/80 backdrop-blur-xl pt-[max(2rem,env(safe-area-inset-top))]">
                                                 <button onClick={() => setActiveCategory('all')} className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 shadow-lg">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                                                 </button>
                                                 <h2 className="text-white font-bold">Hamyon</h2>
                                             </header>
-                                            <WalletPanel
-                                                onChatSelect={(chat) => {
-                                                    if (chat?.id != null) void prefetchChatMessagesCache(chat.id);
-                                                    setSelectedChat(chat);
-                                                    setActiveCategory('all');
-                                                    setIsExpertMode(false);
-                                                }}
-                                            />
+                                            <div className="flex-1 min-h-0 w-full flex flex-col overflow-hidden min-w-0">
+                                                <WalletPanel
+                                                    onChatSelect={(chat) => {
+                                                        if (chat?.id != null) void prefetchChatMessagesCache(chat.id);
+                                                        setSelectedChat(chat);
+                                                        setActiveCategory('all');
+                                                        setIsExpertMode(false);
+                                                        setShowRightPanel(false);
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
                                     )
                                         : (activeCategory === 'profile' || activeCategory === 'settings') ? (
@@ -1176,6 +1242,7 @@ function MessagesPageContent() {
                                                                 const found = chats.find((c: any) => String(c.id) === id);
                                                                 if (found) {
                                                                     setSelectedChat(found);
+                                                                    setShowRightPanel(false);
                                                                     return;
                                                                 }
                                                                 setSelectedChat({
@@ -1188,6 +1255,7 @@ function MessagesPageContent() {
                                                                     avatar: null,
                                                                     status: 'offline',
                                                                 });
+                                                                setShowRightPanel(false);
                                                             }}
                                                             onConsultClientEnded={(chatId) => {
                                                                 if (selectedChat && String(selectedChat.id) === String(chatId)) {
@@ -1207,13 +1275,15 @@ function MessagesPageContent() {
                                                         </div>
                                                     </div>
                                                 ) : selectedChat ? (
-                                                    <ChatCarouselPanel
-                                                        chat={selectedChat}
-                                                        chats={chats}
-                                                        onToggleInfo={() => setShowRightPanel(!showRightPanel)}
-                                                        onBack={() => setSelectedChat(null)}
-                                                        onMarkAsRead={handleMarkAsRead}
-                                                    />
+                                                    hideMainUnderChatInfo && isMobile ? null : (
+                                                        <ChatCarouselPanel
+                                                            chat={selectedChat}
+                                                            chats={chats}
+                                                            onToggleInfo={() => setShowRightPanel(!showRightPanel)}
+                                                            onBack={() => setSelectedChat(null)}
+                                                            onMarkAsRead={handleMarkAsRead}
+                                                        />
+                                                    )
                                                 ) : (
                                                     <div className="hidden lg:flex flex-1 h-full items-center justify-center text-white/20 flex-col gap-4 lg:glass-premium lg:rounded-3xl lg:border lg:border-white/10">
                                                         <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
@@ -1234,7 +1304,7 @@ function MessagesPageContent() {
 
                 {/* Mobile Bottom Navigation - V3 Pro Style, hidden when chat is open */}
                 {!showDetail && (
-                    <nav className="lg:hidden fixed bottom-0 inset-x-0 h-[72px] glass-premium border-t border-white/10 flex items-center justify-around px-2 z-[50]">
+                    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[50] glass-premium border-t border-white/10 flex items-center justify-around px-2 pt-1.5 min-h-[72px] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
                         {[
                             { id: 'all', label: 'Chatlar', icon: <MessageSquare className="h-6 w-6" /> },
                             { id: 'wallet', label: 'Hamyon', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg> },
@@ -1259,29 +1329,47 @@ function MessagesPageContent() {
 
                 {hideRightPanelForSpecialistDashboard
                     ? null
-                    : (showRightPanel && selectedChat) || (showRightPanel && activeCategory === 'services' && selectedExpertInView) ? (
-                    <aside className="fixed lg:relative inset-0 lg:inset-auto z-[110] lg:z-0 xl:block w-80 h-full flex-shrink-0 animate-slide-left">
-                        {activeCategory === 'services' && selectedExpertInView ? (
-                            <ExpertActionsPanel
-                                expert={selectedExpertInView}
-                                onClose={() => setShowRightPanel(false)}
-                            />
-                        ) : selectedChat?.type === 'channel' ? (
-                            <ChannelInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
-                        ) : selectedChat?.type === 'private' ? (
-                            <UserInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
-                        ) : selectedChat ? (
-                            <GroupInfoPanel
-                                chat={selectedChat}
-                                onClose={() => setShowRightPanel(false)}
-                                onDeleted={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
-                                onLeft={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
-                                onGroupUpdated={() => fetchChats()}
-                                onChatNotFound={() => { fetchChats(true); setSelectedChat(null); setShowRightPanel(false); }}
-                            />
-                        ) : null}
-                    </aside>
-                ) : null}
+                    : (
+                        <>
+                            {/* Services: to'lov/shartlar panelini faqat desktopda ko'rsatamiz (2-rasmda ekspert profil to'liq bo'lsin) */}
+                            {showRightPanel && activeCategory === 'services' && selectedExpertInView ? (
+                                <aside className="hidden lg:flex fixed lg:relative inset-0 lg:inset-auto z-[110] lg:z-0 xl:flex w-80 h-full min-h-0 flex-shrink-0 flex-col overflow-hidden animate-slide-left">
+                                    <ExpertActionsPanel
+                                        expert={selectedExpertInView}
+                                        onClose={() => setShowRightPanel(false)}
+                                    />
+                                </aside>
+                            ) : null}
+
+                            {/* Chat info: mobil’da ochilish/yopilish — karusel bilan bir xil transform (420ms); unmount emas → qayta fetch kamayadi */}
+                            {selectedChat ? (
+                                <aside
+                                    aria-hidden={!showRightPanel}
+                                    className={[
+                                        'fixed lg:relative inset-0 lg:inset-auto z-[200] lg:z-0 h-full min-h-0 w-80 flex-shrink-0 overflow-hidden isolate max-lg:bg-transparent max-lg:w-full',
+                                        showRightPanel
+                                            ? 'flex flex-col chat-info-panel-enter'
+                                            : 'hidden',
+                                    ].join(' ')}
+                                >
+                                    {selectedChat?.type === 'channel' ? (
+                                        <ChannelInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
+                                    ) : selectedChat?.type === 'private' ? (
+                                        <UserInfoPanel chat={selectedChat} onClose={() => setShowRightPanel(false)} />
+                                    ) : (
+                                        <GroupInfoPanel
+                                            chat={selectedChat}
+                                            onClose={() => setShowRightPanel(false)}
+                                            onDeleted={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
+                                            onLeft={() => { fetchChats(); setSelectedChat(null); setShowRightPanel(false); }}
+                                            onGroupUpdated={() => fetchChats()}
+                                            onChatNotFound={() => { fetchChats(true); setSelectedChat(null); setShowRightPanel(false); }}
+                                        />
+                                    )}
+                                </aside>
+                            ) : null}
+                        </>
+                    )}
             </div>
         </div>
     );

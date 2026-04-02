@@ -14,6 +14,7 @@ import {
   getExpertListingPitch,
   getExpertSpecialtyLine,
 } from '@/lib/expert-roles';
+import { getClientServiceTerms } from '@/lib/client-service-terms';
 
 interface ServicesListProps {
   onStartChat?: (user: any) => void;
@@ -36,10 +37,12 @@ export default function ServicesList({
   const [selectedExpert, setSelectedExpert] = useState<any | null>(
     initialSelectedExpert ?? null
   );
+  const [showUseTermsModal, setShowUseTermsModal] = useState(false);
 
   useEffect(() => {
     const next = initialSelectedExpert ?? null;
     setSelectedExpert(next);
+    setShowUseTermsModal(false);
     if (next) onExpertSelect?.(next);
   }, [initialSelectedExpert?.id]);
 
@@ -51,6 +54,10 @@ export default function ServicesList({
 
   const isMentorCard =
     !!selectedExpert && getExpertActionType(selectedExpert) === 'mentor';
+
+  const clientTerms = selectedExpert
+    ? getClientServiceTerms(getExpertActionType(selectedExpert))
+    : null;
 
   const specialtyLine = selectedExpert
     ? getExpertSpecialtyLine(selectedExpert)
@@ -66,9 +73,10 @@ export default function ServicesList({
     : 0;
 
   return (
-    <div className="flex flex-col h-full gap-3 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 h-full gap-3 overflow-hidden">
       {selectedExpert && !showRightPanel && onToggleRightPanel && (
-        <div className="flex justify-end shrink-0 px-1">
+        // Mobile’da o‘ng panel ko‘rinmaydi, shuning uchun shu tugmani ham yashiramiz
+        <div className="hidden lg:flex justify-end shrink-0 px-1">
           <button
             onClick={onToggleRightPanel}
             className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/30 border border-emerald-400/40 hover:bg-emerald-500/50 text-emerald-300 font-medium text-sm transition-all"
@@ -89,7 +97,7 @@ export default function ServicesList({
         </div>
       ) : (
         <GlassCard className="flex-1 min-h-0 flex flex-col !p-0 overflow-hidden rounded-[24px] bg-white/10 border-white/20 shadow-2xl">
-          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar">
             <div className="relative flex items-center gap-4 p-6 border-b border-white/10 bg-white/5">
               <div className="w-20 h-20 rounded-full overflow-hidden shrink-0 ring-2 ring-white/20">
                 <img
@@ -232,6 +240,67 @@ export default function ServicesList({
                   )}
                 </ul>
               </div>
+
+              {/* Mobile: foydalanish shartlari bilan tanishish */}
+              {clientTerms && selectedExpert && (
+                <div className="lg:hidden mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowUseTermsModal(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 text-sm font-bold transition-all active:scale-[0.99]"
+                  >
+                    Foydalanish sharti bilan tanishish
+                  </button>
+                </div>
+              )}
+
+              {clientTerms && selectedExpert && showUseTermsModal && (
+                <div
+                  className="fixed inset-0 z-[220] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4"
+                  onClick={() => setShowUseTermsModal(false)}
+                >
+                  <div
+                    className="w-full max-w-md rounded-3xl bg-[#0f1419]/92 border border-white/10 shadow-2xl overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
+                      <div className="text-white/90 font-bold text-sm">Foydalanish shartlari</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowUseTermsModal(false)}
+                        className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/60 hover:text-white/90 transition-all"
+                        aria-label="Yopish"
+                      >
+                        <span className="text-xl leading-none">×</span>
+                      </button>
+                    </div>
+
+                    <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+                      <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/[0.08] px-3 py-3">
+                        <h4 className="text-cyan-200 font-bold text-[11px] uppercase tracking-wider mb-2">
+                          {clientTerms.paymentTitle}
+                        </h4>
+                        <ul className="list-disc list-inside space-y-1.5 text-white/80 text-sm">
+                          {clientTerms.paymentLines.slice(0, 3).map((ln, i) => (
+                            <li key={i}>{ln}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-400/25 bg-blue-500/[0.08] px-3 py-3">
+                        <h4 className="text-blue-200 font-bold text-[11px] uppercase tracking-wider mb-2">
+                          {clientTerms.consultTitle}
+                        </h4>
+                        <ul className="list-disc list-inside space-y-1.5 text-white/80 text-sm">
+                          {clientTerms.consultLines.slice(0, 3).map((ln, i) => (
+                            <li key={i}>{ln}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 pt-2 border-t border-white/10 bg-black/20 shrink-0">
                 <button

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   formatExpertPublicPrice,
   getExpertPanelMode,
@@ -11,6 +11,7 @@ import { GlassCard } from '../ui/GlassCard';
 import JobsPanel from '../jobs/JobsPanel';
 import { useSocket } from '@/context/SocketContext';
 import { useHorizontalNavWheel } from '@/hooks/useHorizontalNavWheel';
+import WalletPanel from './WalletPanel';
 import {
     Globe,
     User,
@@ -62,16 +63,7 @@ export const CATEGORIES = [
         id: 'channel', label: '', icon: <Radio className="h-6 w-6" />
     },
     {
-        id: 'bot', label: '', icon: <Bot className="h-6 w-6" />
-    },
-    {
-        id: 'communities', label: '', icon: <LayoutGrid className="h-6 w-6" />
-    },
-    {
         id: 'services', label: '', icon: <Briefcase className="h-6 w-6" />
-    },
-    {
-        id: 'jobs', label: '', icon: <ShieldCheck className="h-6 w-6" />
     },
     {
         id: 'finance', label: '', icon: <LineChart className="h-6 w-6" />
@@ -83,6 +75,7 @@ interface ChatListProps {
     onCategoryChange: (category: string) => void;
     onChatSelect?: (chat: any) => void;
     onExpertSelect?: (expert: any) => void;
+  isMobile?: boolean;
     className?: string;
     hideHeader?: boolean;
     hideCategories?: boolean;
@@ -120,6 +113,7 @@ export default function ChatList({
     onCategoryChange,
     onChatSelect,
     onExpertSelect,
+  isMobile = false,
     className,
     hideHeader = false,
     hideCategories = false,
@@ -148,7 +142,7 @@ export default function ChatList({
     onToggleExpertMode,
     showNotifications,
     setShowNotifications,
-    unreadCount = 0
+    unreadCount = 0,
 }: ChatListProps) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
@@ -163,6 +157,120 @@ export default function ChatList({
         if (onCategoryChange) onCategoryChange(catId);
     };
 
+    /** Telegram uslubi: mobil + qidiruv yo‘q bo‘lsa gorizontal scroll-snap pager */
+    const useCategoryPager = isMobile && !searchQuery.trim();
+
+    /** Oldingi kategoriya — faqat klassik (pager emas) rejimda CSS kirish animatsiyasi */
+    const prevCategoryIdRef = useRef(activeCategory);
+    const prevIdx = CATEGORIES.findIndex((c) => c.id === prevCategoryIdRef.current);
+    const currIdx = CATEGORIES.findIndex((c) => c.id === activeCategory);
+    const categoryListTransitionClass =
+        !useCategoryPager &&
+        prevCategoryIdRef.current !== activeCategory &&
+        prevIdx >= 0 &&
+        currIdx >= 0
+            ? currIdx > prevIdx
+                ? 'chat-list-category-transition-next'
+                : 'chat-list-category-transition-prev'
+            : '';
+
+    useLayoutEffect(() => {
+        prevCategoryIdRef.current = activeCategory;
+    }, [activeCategory]);
+
+    const categoryPagerRef = useRef<HTMLDivElement | null>(null);
+    const programmaticPagerScrollRef = useRef(false);
+    const pagerScrollRaf = useRef<number | null>(null);
+    const activeCategoryRef = useRef(activeCategory);
+    useLayoutEffect(() => {
+        activeCategoryRef.current = activeCategory;
+    }, [activeCategory]);
+
+    const handlePagerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const el = e.currentTarget;
+        const w = el.clientWidth;
+        if (w <= 0) return;
+        if (programmaticPagerScrollRef.current) return;
+        if (pagerScrollRaf.current != null) cancelAnimationFrame(pagerScrollRaf.current);
+        pagerScrollRaf.current = requestAnimationFrame(() => {
+            pagerScrollRaf.current = null;
+            const idx = Math.round(el.scrollLeft / w);
+            const nextCat = CATEGORIES[idx]?.id;
+            if (nextCat && nextCat !== activeCategoryRef.current) {
+                activeCategoryRef.current = nextCat;
+                handleCategoryChange(nextCat);
+            }
+        });
+    };
+
+    useLayoutEffect(() => {
+        if (!useCategoryPager || !categoryPagerRef.current) return;
+        const el = categoryPagerRef.current;
+        const idx = CATEGORIES.findIndex((c) => c.id === activeCategory);
+        if (idx < 0) return;
+        const run = () => {
+            const w = el.clientWidth;
+            if (w <= 0) return;
+            const target = idx * w;
+            if (Math.abs(el.scrollLeft - target) < 6) return;
+            programmaticPagerScrollRef.current = true;
+            el.scrollTo({ left: target, behavior: 'auto' });
+            requestAnimationFrame(() => {
+                programmaticPagerScrollRef.current = false;
+            });
+        };
+        requestAnimationFrame(run);
+    }, [activeCategory, useCategoryPager]);
+
+    /** Snap buzilsa (iOS / nested scroll): scroll to‘xtagach eng yaqin sahifaga qotiramiz */
+    useLayoutEffect(() => {
+        if (!useCategoryPager) return;
+        const el = categoryPagerRef.current;
+        if (!el) return;
+
+        const SNAP_EPS = 4;
+        const DEBOUNCE_MS = 90;
+
+        const snapToNearest = () => {
+            if (programmaticPagerScrollRef.current) return;
+            const w = el.clientWidth;
+            if (w <= 0) return;
+            const maxIdx = CATEGORIES.length - 1;
+            let idx = Math.round(el.scrollLeft / w);
+            idx = Math.max(0, Math.min(maxIdx, idx));
+            const target = Math.round(idx * w);
+            if (Math.abs(el.scrollLeft - target) <= SNAP_EPS) return;
+            programmaticPagerScrollRef.current = true;
+            el.scrollTo({ left: target, behavior: 'auto' });
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    programmaticPagerScrollRef.current = false;
+                });
+            });
+        };
+
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const scheduleSnapAfterIdle = () => {
+            if (programmaticPagerScrollRef.current) return;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                debounceTimer = null;
+                snapToNearest();
+            }, DEBOUNCE_MS);
+        };
+
+        const onScrollEnd = () => snapToNearest();
+
+        el.addEventListener('scrollend', onScrollEnd);
+        el.addEventListener('scroll', scheduleSnapAfterIdle, { passive: true });
+
+        return () => {
+            el.removeEventListener('scrollend', onScrollEnd);
+            el.removeEventListener('scroll', scheduleSnapAfterIdle);
+            if (debounceTimer) clearTimeout(debounceTimer);
+        };
+    }, [useCategoryPager]);
+
     const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
         const touch = e.touches[0];
         touchStartX.current = touch.clientX;
@@ -170,6 +278,7 @@ export default function ChatList({
     };
 
     const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (useCategoryPager) return;
         if (touchStartX.current === null || touchStartY.current === null) return;
         const touch = e.changedTouches[0];
         const dx = touch.clientX - touchStartX.current;
@@ -196,44 +305,53 @@ export default function ChatList({
         }
     };
 
-    // FILTER CHATS
-    const filteredChats = searchQuery
-        ? searchResults
-        : (activeCategory === 'jobs' || activeCategory === 'all')
-            ? chats
-            : (activeCategory === 'contacts'
+    const getFilteredChatsForCategory = (catId: string) =>
+        searchQuery
+            ? searchResults
+            : catId === 'jobs' || catId === 'all'
+              ? chats
+              : catId === 'contacts'
                 ? contacts
                 : (chats || []).filter((chat: any) => {
-                    if (activeCategory === 'user') return chat.type === 'private' || !chat.type;
-                    return chat.type === activeCategory;
-                }));
+                      if (catId === 'user') return chat.type === 'private' || !chat.type;
+                      return chat.type === catId;
+                  });
 
     const [expertCards, setExpertCards] = useState<any[]>([]);
     const [expertLoading, setExpertLoading] = useState(false);
 
-    useEffect(() => {
-        const loadExperts = async () => {
-            if (activeCategory !== 'services') return;
-            try {
-                setExpertLoading(true);
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
-                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-                const res = await fetch(`${API_URL}/api/users/search?expert=true`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    setExpertCards(data.filter((u: any) => u.verified_status === 'approved'));
-                }
-            } catch (e) {
-                console.error('Failed to load experts for sidebar:', e);
-            } finally {
-                setExpertLoading(false);
+    const fetchExperts = useCallback(async () => {
+        try {
+            setExpertLoading(true);
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const res = await fetch(`${API_URL}/api/users/search?expert=true`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setExpertCards(data.filter((u: any) => u.verified_status === 'approved'));
             }
-        };
-        loadExperts();
-    }, [activeCategory]);
+        } catch (e) {
+            console.error('Failed to load experts for sidebar:', e);
+        } finally {
+            setExpertLoading(false);
+        }
+    }, []);
+
+    /** Mobil pager: barcha slaydlar uchun bir marta */
+    useEffect(() => {
+        if (!isMobile) return;
+        void fetchExperts();
+    }, [isMobile, fetchExperts]);
+
+    /** Desktop: faqat Xizmatlar tanlanganda */
+    useEffect(() => {
+        if (isMobile) return;
+        if (activeCategory !== 'services') return;
+        void fetchExperts();
+    }, [activeCategory, isMobile, fetchExperts]);
 
     const getCategoryUnreadCount = (catId: string) => {
         if (catId === 'all') {
@@ -249,8 +367,203 @@ export default function ChatList({
             .reduce((acc: number, chat: any) => acc + (chat.unread || 0), 0);
     };
 
+    const renderCategoryFeed = (slideCatId: string): React.ReactNode => {
+        const fc = getFilteredChatsForCategory(slideCatId);
+        return slideCatId === 'services' ? (
+            expertLoading ? (
+                <div className="pt-3 space-y-3">
+                    {Array.from({ length: 4 }).map((_, idx) => (
+                        <div
+                            key={idx}
+                            className="animate-pulse rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-center gap-3"
+                        >
+                            <div className="h-10 w-10 rounded-full bg-white/10" />
+                            <div className="flex-1 space-y-2">
+                                <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                                <div className="h-2 w-3/4 rounded-full bg-white/5" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : expertCards.length > 0 ? (
+                expertCards.map((exp, index) => {
+                    const { line: priceLine } = formatExpertPublicPrice(exp);
+                    const cardBlurb = getExpertListingPitch(exp) || getExpertSpecialtyLine(exp);
+                    return (
+                        <div key={exp.id || index} className="px-1">
+                            <GlassCard
+                                onClick={() => onExpertSelect && onExpertSelect(exp)}
+                                hoverEffect={true}
+                                className="flex items-center gap-3 !p-4 !bg-white/[0.06] hover:!bg-white/10 !rounded-[1.5rem] border border-emerald-500/20 transition-all active:scale-[0.98]"
+                                style={{ animationDelay: `${index * 40}ms` }}
+                            >
+                                <div className="relative">
+                                    <div className="w-11 h-11 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center text-white font-bold text-lg">
+                                        {exp.avatar_url ? (
+                                            <img src={exp.avatar_url} className="w-full h-full object-cover" alt="" />
+                                        ) : (
+                                            (exp.name || '?').substring(0, 1).toUpperCase()
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center mb-0.5 gap-2">
+                                        <h3 className="text-white font-medium truncate text-sm">
+                                            {exp.name} {exp.surname}
+                                        </h3>
+                                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 font-bold uppercase tracking-widest shrink-0">
+                                            Tasdiqlangan
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-[#00A884] font-semibold truncate">{exp.profession}</p>
+                                    {cardBlurb && (
+                                        <p className="text-[10px] text-white/45 line-clamp-2 mt-0.5 leading-snug whitespace-pre-wrap">
+                                            {cardBlurb}
+                                        </p>
+                                    )}
+                                    <div className="flex justify-between items-start gap-2 mt-1.5">
+                                        <span className="text-[10px] text-white/40 shrink-0">{(exp.experience_years || 0)} yil</span>
+                                        <span className="text-[10px] text-emerald-300 font-bold text-right leading-tight max-w-[55%]">
+                                            {priceLine}
+                                        </span>
+                                    </div>
+                                </div>
+                            </GlassCard>
+                        </div>
+                    );
+                })
+            ) : (
+                <div className="flex flex-col items-center justify-center h-40 text-white/40 mt-10">
+                    <p className="text-sm">Hozircha tasdiqlangan e&apos;lonlar yo&apos;q</p>
+                </div>
+            )
+        ) : slideCatId === 'wallet' && isMobile ? (
+            <WalletPanel onChatSelect={onChatSelect} />
+        ) : loading ? (
+            <div className="pt-3 space-y-3">
+                {Array.from({ length: 6 }).map((_, idx) => (
+                    <div
+                        key={idx}
+                        className="animate-pulse rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-center gap-3"
+                    >
+                        <div className="h-10 w-10 rounded-full bg-white/10" />
+                        <div className="flex-1 space-y-2">
+                            <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                            <div className="h-2 w-3/4 rounded-full bg-white/5" />
+                        </div>
+                        <div className="h-3 w-8 rounded-full bg-white/10" />
+                    </div>
+                ))}
+            </div>
+        ) : fc.length > 0 ? (
+            fc.map((chat, index) => {
+                const myId = currentUser?.id;
+                const isTrade = chat.isTrade;
+                const isUsernameSearchResult =
+                    searchQuery &&
+                    (chat.type === 'contact' || chat.isGlobal) &&
+                    (chat.username || chat.message === 'Foydalanuvchi nomi');
+                let displayName = isUsernameSearchResult ? `@${chat.username}` : chat.name;
+                const isLiveSessionPreview =
+                    (chat.message?.includes('darsni boshladi') || chat.message?.includes('sessiyasini boshladi')) &&
+                    !chat.message?.startsWith('🚀');
+                let subtitle = isTrade
+                    ? 'Savdo muloqoti'
+                    : isLiveSessionPreview
+                      ? `🚀 ${chat.message}`
+                      : chat.message;
+                if (isUsernameSearchResult) subtitle = 'Foydalanuvchi nomi';
+                if (isTrade) {
+                    displayName = chat.participants?.indexOf(myId) === 0 ? 'Xaridor' : 'Sotuvchi';
+                }
+                const listingBadge = !isTrade && chat.type === 'private' && isExpertListingChat(chat);
+                return (
+                    <div key={chat.id || chat._id || index} className="px-1">
+                        <GlassCard
+                            onClick={() =>
+                                chat.type === 'contact' || chat.isGlobal
+                                    ? handleAddContact(chat)
+                                    : onChatSelect && onChatSelect(chat)
+                            }
+                            hoverEffect={true}
+                            className={`flex items-center gap-3 !p-4 !bg-white/[0.05] hover:!bg-white/10 !rounded-[1.5rem] border-transparent transition-all active:scale-[0.98] animate-slide-up${listingBadge ? ' ring-1 ring-amber-400/35' : ''}`}
+                            style={{ animationDelay: `${index * 40}ms` }}
+                        >
+                            <div className="relative">
+                                <div
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden ${isTrade ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-white/10'}`}
+                                >
+                                    {(() => {
+                                        const avatar =
+                                            chat.avatar || chat.avatar_url || chat.otherUser?.avatar || chat.otherUser?.avatar_url;
+                                        if (avatar && avatar !== 'null' && avatar !== '' && avatar !== 'use_initials' && !isTrade) {
+                                            const src = avatar.startsWith('http') || avatar.startsWith('data:')
+                                                ? avatar
+                                                : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/${avatar}`;
+                                            return (
+                                                <img
+                                                    src={src}
+                                                    className="w-full h-full object-cover"
+                                                    alt=""
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        (e.target as HTMLImageElement).parentElement!.innerText = displayName
+                                                            ? displayName.substring(0, 1).toUpperCase()
+                                                            : '?';
+                                                    }}
+                                                />
+                                            );
+                                        }
+                                        return displayName ? displayName.replace(/^@/, '').substring(0, 1).toUpperCase() : '?';
+                                    })()}
+                                </div>
+                                {chat.status === 'online' && !isTrade && (
+                                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-[3px] border-[#1a1c2e]" />
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-baseline mb-0.5 gap-2">
+                                    <h3 className="text-white font-medium truncate text-sm flex items-center gap-2 min-w-0">
+                                        {displayName}
+                                        {listingBadge && (
+                                            <span className="shrink-0 text-[8px] px-1.5 py-0.5 rounded-md bg-amber-500/25 text-amber-200 font-bold uppercase tracking-wide">
+                                                E&apos;lon
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <span className="text-[10px] text-white/30 uppercase tracking-tighter shrink-0">{chat.time}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <p className="text-xs text-white/50 truncate group-hover:text-white/70 transition-colors">{subtitle}</p>
+                                    {chat.unread > 0 && (
+                                        <div className="min-w-[1.25rem] h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white px-1 shadow-lg shadow-blue-500/20">
+                                            {chat.unread}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </GlassCard>
+                    </div>
+                );
+            })
+        ) : (
+            <div className="flex flex-col items-center justify-center h-40 text-white/40 mt-10">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                    {isSearching ? (
+                        <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" />
+                    ) : (
+                        <Plus className="h-8 w-8 text-white/20" />
+                    )}
+                </div>
+                <p className="text-sm">
+                    {isSearching ? 'Qidirilmoqda...' : searchQuery ? 'Hech narsa topilmadi' : "Hali chatlar yo'q"}
+                </p>
+            </div>
+        );
+    };
+
     return (
-        <div className={`h-full min-w-0 flex flex-col relative overflow-hidden select-none animate-fade-in rounded-3xl ${className || ''}`}>
+        <div className={`h-full min-h-0 min-w-0 flex flex-col relative overflow-hidden select-none animate-fade-in rounded-3xl ${className || ''}`}>
             {/* iOS Style Sidebar Drawer */}
 
             {/* Sticky Header / Search / Categories Container */}
@@ -340,198 +653,42 @@ export default function ChatList({
                 </div>
             </div>
 
-            <div
-                className="flex-1 overflow-y-auto px-3 pt-3 space-y-3 custom-scrollbar"
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-            >
-                {activeCategory === 'services' ? (
-                    expertLoading ? (
-                        <div className="pt-3 space-y-3">
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <div
-                                    key={idx}
-                                    className="animate-pulse rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-center gap-3"
-                                >
-                                    <div className="h-10 w-10 rounded-full bg-white/10" />
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-3 w-1/2 rounded-full bg-white/10" />
-                                        <div className="h-2 w-3/4 rounded-full bg-white/5" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : expertCards.length > 0 ? (
-                        expertCards.map((exp, index) => {
-                            const { line: priceLine } = formatExpertPublicPrice(exp);
-                            const cardBlurb =
-                                getExpertListingPitch(exp) || getExpertSpecialtyLine(exp);
-                            return (
-                            <div key={exp.id || index} className="px-1">
-                                <GlassCard
-                                    onClick={() => onExpertSelect && onExpertSelect(exp)}
-                                    hoverEffect={true}
-                                    className="flex items-center gap-3 !p-4 !bg-white/[0.06] hover:!bg-white/10 !rounded-[1.5rem] border border-emerald-500/20 transition-all active:scale-[0.98]"
-                                    style={{ animationDelay: `${index * 40}ms` }}
-                                >
-                                    <div className="relative">
-                                        <div className="w-11 h-11 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center text-white font-bold text-lg">
-                                            {exp.avatar_url ? (
-                                                <img src={exp.avatar_url} className="w-full h-full object-cover" />
-                                            ) : (
-                                                (exp.name || '?').substring(0, 1).toUpperCase()
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-center mb-0.5 gap-2">
-                                            <h3 className="text-white font-medium truncate text-sm">
-                                                {exp.name} {exp.surname}
-                                            </h3>
-                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 font-bold uppercase tracking-widest shrink-0">
-                                                Tasdiqlangan
-                                            </span>
-                                        </div>
-                                        <p className="text-[11px] text-[#00A884] font-semibold truncate">
-                                            {exp.profession}
-                                        </p>
-                                        {cardBlurb && (
-                                            <p className="text-[10px] text-white/45 line-clamp-2 mt-0.5 leading-snug whitespace-pre-wrap">
-                                                {cardBlurb}
-                                            </p>
-                                        )}
-                                        <div className="flex justify-between items-start gap-2 mt-1.5">
-                                            <span className="text-[10px] text-white/40 shrink-0">
-                                                {(exp.experience_years || 0)} yil
-                                            </span>
-                                            <span className="text-[10px] text-emerald-300 font-bold text-right leading-tight max-w-[55%]">
-                                                {priceLine}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </GlassCard>
+            {useCategoryPager ? (
+                <div
+                    ref={categoryPagerRef}
+                    className="messages-category-pager [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    onScroll={handlePagerScroll}
+                >
+                    {CATEGORIES.map((cat) => (
+                        <div
+                            key={cat.id}
+                            className="messages-category-pager-slide h-full min-h-0 flex flex-col overflow-hidden"
+                        >
+                            <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-1 custom-scrollbar space-y-3">
+                                {renderCategoryFeed(cat.id)}
                             </div>
-                            );
-                        })
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-40 text-white/40 mt-10">
-                            <p className="text-sm">Hozircha tasdiqlangan e'lonlar yo'q</p>
                         </div>
-                    )
-                ) : loading ? (
-                    <div className="pt-3 space-y-3">
-                        {Array.from({ length: 6 }).map((_, idx) => (
-                            <div
-                                key={idx}
-                                className="animate-pulse rounded-2xl border border-white/10 bg-white/5 px-3 py-3 flex items-center gap-3"
-                            >
-                                <div className="h-10 w-10 rounded-full bg-white/10" />
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-3 w-1/2 rounded-full bg-white/10" />
-                                    <div className="h-2 w-3/4 rounded-full bg-white/5" />
-                                </div>
-                                <div className="h-3 w-8 rounded-full bg-white/10" />
-                            </div>
-                        ))}
+                    ))}
+                </div>
+            ) : (
+                <div
+                    className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-1 custom-scrollbar"
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div
+                        key={activeCategory}
+                        className={`space-y-3 min-h-0 pb-1 ${categoryListTransitionClass}`}
+                    >
+                        {renderCategoryFeed(activeCategory)}
                     </div>
-                ) : filteredChats.length > 0 ? (
-                    filteredChats.map((chat, index) => {
-                        const myId = currentUser?.id;
-                        const isTrade = chat.isTrade;
-                        const isUsernameSearchResult = searchQuery && (chat.type === 'contact' || chat.isGlobal) && (chat.username || chat.message === 'Foydalanuvchi nomi');
-                        let displayName = isUsernameSearchResult ? `@${chat.username}` : chat.name;
-                        const isLiveSessionPreview =
-                            (chat.message?.includes('darsni boshladi') ||
-                                chat.message?.includes('sessiyasini boshladi')) &&
-                            !chat.message?.startsWith('🚀');
-                        let subtitle = isTrade
-                            ? 'Savdo muloqoti'
-                            : isLiveSessionPreview
-                              ? `🚀 ${chat.message}`
-                              : chat.message;
-                        if (isUsernameSearchResult) subtitle = 'Foydalanuvchi nomi';
-
-                        if (isTrade) {
-                            displayName = chat.participants?.indexOf(myId) === 0 ? "Xaridor" : "Sotuvchi";
-                        }
-
-                        const listingBadge = !isTrade && chat.type === 'private' && isExpertListingChat(chat);
-
-                        return (
-                            <div key={chat.id || chat._id || index} className="px-1">
-                                <GlassCard
-                                    onClick={() => chat.type === 'contact' || chat.isGlobal ? handleAddContact(chat) : (onChatSelect && onChatSelect(chat))}
-                                    hoverEffect={true}
-                                    className={`flex items-center gap-3 !p-4 !bg-white/[0.05] hover:!bg-white/10 !rounded-[1.5rem] border-transparent transition-all active:scale-[0.98] animate-slide-up${listingBadge ? ' ring-1 ring-amber-400/35' : ''}`}
-                                    style={{ animationDelay: `${index * 40}ms` }}
-                                >
-                                    <div className="relative">
-                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden ${isTrade ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-white/10'}`}>
-                                            {(() => {
-                                                const avatar = chat.avatar || chat.avatar_url || chat.otherUser?.avatar || chat.otherUser?.avatar_url;
-                                                if (avatar && avatar !== 'null' && avatar !== '' && avatar !== 'use_initials' && !isTrade) {
-                                                    const src = avatar.startsWith('http') || avatar.startsWith('data:')
-                                                        ? avatar
-                                                        : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app'}/${avatar}`;
-                                                    return (
-                                                        <img
-                                                            src={src}
-                                                            className="w-full h-full object-cover"
-                                                            onError={(e) => {
-                                                                (e.target as HTMLImageElement).style.display = 'none';
-                                                                (e.target as HTMLImageElement).parentElement!.innerText = displayName ? displayName.substring(0, 1).toUpperCase() : '?';
-                                                            }}
-                                                        />
-                                                    );
-                                                }
-                                                return displayName ? displayName.replace(/^@/, '').substring(0, 1).toUpperCase() : '?';
-                                            })()}
-                                        </div>
-                                        {chat.status === 'online' && !isTrade && (
-                                            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-[3px] border-[#1a1c2e]"></div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-baseline mb-0.5 gap-2">
-                                            <h3 className="text-white font-medium truncate text-sm flex items-center gap-2 min-w-0">
-                                                {displayName}
-                                                {listingBadge && (
-                                                    <span className="shrink-0 text-[8px] px-1.5 py-0.5 rounded-md bg-amber-500/25 text-amber-200 font-bold uppercase tracking-wide">
-                                                        E&apos;lon
-                                                    </span>
-                                                )}
-                                            </h3>
-                                            <span className="text-[10px] text-white/30 uppercase tracking-tighter shrink-0">{chat.time}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-xs text-white/50 truncate group-hover:text-white/70 transition-colors">
-                                                {subtitle}
-                                            </p>
-                                            {chat.unread > 0 && (
-                                                <div className="min-w-[1.25rem] h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white px-1 shadow-lg shadow-blue-500/20">
-                                                    {chat.unread}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </GlassCard>
-                            </div>
-                        );
-                    })
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-40 text-white/40 mt-10">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                            {isSearching ? <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div> : <Plus className="h-8 w-8 text-white/20" />}
-                        </div>
-                        <p className="text-sm">{isSearching ? 'Qidirilmoqda...' : (searchQuery ? 'Hech narsa topilmadi' : 'Hali chatlar yo\'q')}</p>
-                    </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Plus: kichik ekranda o‘ngda, pastda, lekin pastdagi nav (72px) ustiga chiqmasin */}
             <button
                 onClick={() => setShowContactModal(true)}
-                className="absolute right-3 bottom-[calc(72px+0.25rem)] sm:bottom-4 sm:right-4 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_10px_30px_rgba(16,185,129,0.45)] flex items-center justify-center transition-transform active:scale-95"
+                className="lg:hidden fixed right-3 bottom-[calc(72px+env(safe-area-inset-bottom,0px)+0.35rem)] sm:bottom-4 sm:right-4 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_10px_30px_rgba(16,185,129,0.45)] flex items-center justify-center transition-transform active:scale-95 z-[80]"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

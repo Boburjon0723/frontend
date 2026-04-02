@@ -25,6 +25,8 @@ export default function GroupInfoPanel({ chat, onClose, onDeleted, onLeft, onGro
     const [editNameValue, setEditNameValue] = useState('');
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+    /** Bir xil guruh uchun panel yopib-ochganda API qayta chaqirilmasin */
+    const lastFetchedGroupIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -50,13 +52,18 @@ export default function GroupInfoPanel({ chat, onClose, onDeleted, onLeft, onGro
     };
 
     useEffect(() => {
-        if (chat) {
-            setFullChatDetails(null); // Reset while loading
-            if (chat.type === 'group') {
-                fetchGroupDetails();
-            }
+        if (!chat) {
+            setFullChatDetails(null);
+            lastFetchedGroupIdRef.current = null;
+            return;
         }
-    }, [chat]);
+        if (chat.type !== 'group') return;
+        const id = String(chat.id || chat._id);
+        if (lastFetchedGroupIdRef.current === id) return;
+        lastFetchedGroupIdRef.current = id;
+        setFullChatDetails(null);
+        void fetchGroupDetails();
+    }, [chat?.id, chat?.type]);
 
     const handleAddMember = async (user: any) => {
         if (!chat) return;
@@ -211,7 +218,7 @@ export default function GroupInfoPanel({ chat, onClose, onDeleted, onLeft, onGro
 
     if (!chat) {
         return (
-            <div className="h-full flex items-center justify-center text-white/30 text-sm">
+            <div className="flex-1 min-h-0 h-full flex items-center justify-center text-white/30 text-sm">
                 Ma'lumotlarni ko'rish uchun chatni tanlang
             </div>
         );
@@ -220,7 +227,7 @@ export default function GroupInfoPanel({ chat, onClose, onDeleted, onLeft, onGro
     if (chat.type !== 'group') {
         const otherUser = chat.otherUser || {};
         return (
-            <div className="h-full overflow-y-auto custom-scrollbar flex flex-col gap-4 p-4">
+            <div className="flex-1 min-h-0 h-full overflow-y-auto overscroll-y-contain custom-scrollbar flex flex-col gap-4 p-4">
                 <div className="flex flex-col items-center justify-center p-4">
                     <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-3xl mb-3 shadow-lg">
                         {otherUser.avatar ? (
@@ -253,10 +260,10 @@ export default function GroupInfoPanel({ chat, onClose, onDeleted, onLeft, onGro
     };
 
     return (
-        <div className="lg:h-full lg:static fixed inset-0 z-[100] bg-[#788296]/25 backdrop-blur-xl lg:bg-transparent flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+        <div className="lg:h-full lg:min-h-0 lg:flex-1 lg:static fixed inset-0 z-[100] flex flex-col gap-4 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar max-lg:bg-white/[0.07] max-lg:backdrop-blur-2xl max-lg:backdrop-saturate-150 lg:bg-transparent lg:backdrop-blur-none lg:border-l lg:border-white/5 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:pt-0 lg:pb-0 motion-reduce:transition-none">
             <button
                 onClick={onClose}
-                className="absolute top-4 right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all"
+                className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all lg:top-4"
             >
                 <X className="h-5 w-5" />
             </button>

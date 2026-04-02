@@ -53,7 +53,7 @@ export default function JobsPanel() {
   );
 
   return (
-    <div className="flex flex-col h-full gap-4 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 h-full gap-4 overflow-hidden">
       {/* Header – ServicesList bilan bir xil uslub */}
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-3">

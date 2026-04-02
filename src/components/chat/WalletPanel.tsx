@@ -3,6 +3,92 @@ import { GlassCard } from '../ui/GlassCard';
 import { GlassButton } from '../ui/GlassButton';
 import { useSocket } from '@/context/SocketContext';
 
+function WalletHistoryCard({ transactions }: { transactions: any[] }) {
+    return (
+        <GlassCard className="!p-3 lg:!p-5 !rounded-[1.25rem] lg:!rounded-[25px] border border-amber-500/15 bg-gradient-to-br from-[rgba(var(--glass-rgb),0.55)] to-[rgba(var(--glass-rgb),0.35)] backdrop-blur-xl shadow-lg">
+            <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3 pb-2 border-b border-white/10">
+                <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-amber-500/15 border border-amber-400/35 flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 lg:h-5 lg:w-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div className="min-w-0">
+                        <h3 className="text-white font-bold text-sm lg:text-base tracking-tight">Tranzaksiya tarixi</h3>
+                        <p className="text-white/40 text-[10px] lg:text-xs">MALI yuborish va qabul qilishlar</p>
+                    </div>
+                </div>
+                {transactions.length > 0 && (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-100/90 bg-amber-500/20 px-2 py-1 rounded-lg border border-amber-400/25 shrink-0 tabular-nums">
+                        {transactions.length}
+                    </span>
+                )}
+            </div>
+            {transactions.length === 0 ? (
+                <div className="text-center py-7 lg:py-9 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
+                    <p className="text-white/35 text-xs lg:text-sm">Hali tranzaksiyalar mavjud emas</p>
+                </div>
+            ) : (
+                <div className="max-h-[min(42vh,280px)] sm:max-h-[300px] lg:max-h-[420px] overflow-y-auto overscroll-y-contain custom-scrollbar space-y-2 pr-0.5 -mr-0.5">
+                    {transactions.map((tx) => {
+                        const currentUser = JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('user') || '{}' : '{}');
+                        const userId = currentUser.id || currentUser.userId;
+                        const isSender = tx.sender_id === userId;
+                        const otherName = isSender ? (tx.receiver_name || 'Tizim') : (tx.sender_name || 'Tizim');
+                        const otherAvatar = isSender ? tx.receiver_avatar : tx.sender_avatar;
+
+                        return (
+                            <div
+                                key={tx.id}
+                                className="p-3 lg:p-4 rounded-xl lg:rounded-2xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/15 transition-all relative overflow-hidden group"
+                            >
+                                <div className="absolute top-0 left-0 w-0.5 h-full bg-gradient-to-b from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="flex justify-between items-center gap-2 relative z-10">
+                                    <div className="flex items-center gap-2.5 lg:gap-3 min-w-0 flex-1">
+                                        <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-xl bg-white/5 p-0.5 border border-white/10 shrink-0">
+                                            {otherAvatar ? (
+                                                <img src={otherAvatar} alt="" className="w-full h-full object-cover rounded-[10px] lg:rounded-[12px]" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/10 to-transparent rounded-[10px] lg:rounded-[12px]">
+                                                    <span className="text-white text-xs lg:text-sm font-bold">{otherName[0]}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-white font-bold text-xs lg:text-sm truncate">
+                                                {isSender ? 'Yuborilgan: ' : 'Qabul: '}
+                                                {otherName}
+                                            </p>
+                                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${isSender ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                                                    {isSender ? 'Chiquvchi' : 'Kiruvchi'}
+                                                </span>
+                                                <span className="text-[9px] text-white/30 font-bold">
+                                                    {new Date(tx.created_at).toLocaleString('uz-UZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className={`text-base lg:text-lg font-black tabular-nums ${isSender ? 'text-white/90' : 'text-emerald-400'}`}>
+                                            {isSender ? '-' : '+'}
+                                            {Number(tx.amount).toLocaleString()}
+                                        </p>
+                                        <p className="text-[9px] text-white/25 font-black uppercase tracking-widest">MALI</p>
+                                    </div>
+                                </div>
+                                {tx.note && (
+                                    <p className="mt-2 pt-2 border-t border-white/5 text-[10px] lg:text-[11px] text-white/40 italic truncate relative z-10">{tx.note}</p>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </GlassCard>
+    );
+}
+
 export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: any) => void }) {
     const { socket } = useSocket();
     const [balance, setBalance] = useState({ available: 0, locked: 0, hasPin: false });
@@ -15,7 +101,14 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
     const [showTopUpModal, setShowTopUpModal] = useState(false);
     const [topUpAmount, setTopUpAmount] = useState('');
     const [topUpStatus, setTopUpStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [topUpError, setTopUpError] = useState('');
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+    const [withdrawAmount, setWithdrawAmount] = useState('');
+    const [withdrawCard, setWithdrawCard] = useState('');
+    const [withdrawPin, setWithdrawPin] = useState('');
+    const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [withdrawError, setWithdrawError] = useState('');
 
     // Buy/Sell States
     const [showBuyModal, setShowBuyModal] = useState(false);
@@ -28,7 +121,23 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
     const [myAds, setMyAds] = useState<any[]>([]);
     const [editingAd, setEditingAd] = useState<any>(null);
     const [transactions, setTransactions] = useState<any[]>([]);
-    const [walletTab, setWalletTab] = useState<'balance' | 'history'>('balance');
+    const [walletConfig, setWalletConfig] = useState<{ adminCard: string | null; systemAvailableMali: number }>({
+        adminCard: null,
+        systemAvailableMali: 0
+    });
+    const [contacts, setContacts] = useState<any[]>([]);
+    const [showSendModal, setShowSendModal] = useState(false);
+    const [sendRecipientId, setSendRecipientId] = useState('');
+    const [sendAmount, setSendAmount] = useState('');
+    const [sendPin, setSendPin] = useState('');
+    const [sendNote, setSendNote] = useState('');
+    const [sendSearch, setSendSearch] = useState('');
+    const [sendStatus, setSendStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [sendError, setSendError] = useState('');
+
+    const MIN_TOPUP = 10;
+    const MAX_TOPUP = 1000000;
+    const MIN_WITHDRAW = 10;
 
     // Fetch Ads
     const fetchAds = async () => {
@@ -179,6 +288,24 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
         }
     };
 
+    const fetchWalletConfig = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+            const res = await fetch(`${API_URL}/api/token/config`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            setWalletConfig({
+                adminCard: data.admin_card_number || null,
+                systemAvailableMali: Number(data.system_available_mali || 0)
+            });
+        } catch (e) {
+            console.error('Failed to fetch wallet config', e);
+        }
+    };
+
     const fetchPendingRequests = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -205,6 +332,22 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                 setMyTrades(data);
             }
         } catch (e) { console.error(e); }
+    };
+
+    const fetchContacts = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+            const res = await fetch(`${API_URL}/api/users/contacts`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setContacts(Array.isArray(data) ? data : []);
+            }
+        } catch (e) {
+            console.error('Failed to fetch contacts', e);
+        }
     };
 
     const handleTrade = async (ad: any) => {
@@ -289,12 +432,15 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
 
     useEffect(() => {
         fetchBalance();
+        fetchTransactions();
         fetchPendingRequests();
         fetchMyTrades();
         fetchMyAds();
+        fetchWalletConfig();
         if (socket) {
             socket.on('balance_updated', () => {
                 fetchBalance();
+                fetchTransactions();
             });
             socket.on('p2p_ads_updated', () => {
                 if (marketTab !== 'none') fetchAds();
@@ -316,12 +462,6 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
             };
         }
     }, [socket, marketTab]);
-
-    useEffect(() => {
-        if (walletTab === 'history') {
-            fetchTransactions();
-        }
-    }, [walletTab]);
 
     const handleSetPin = async () => {
         if (newPin.length !== 4 || isNaN(Number(newPin))) { setPinError('PIN must be 4 digits'); return; }
@@ -355,10 +495,20 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
     };
 
     const transformTopUp = async () => {
-        if (!topUpAmount || isNaN(Number(topUpAmount)) || Number(topUpAmount) <= 0) {
-            alert("Iltimos to'g'ri summa kiriting");
+        const numericAmount = Number(topUpAmount);
+        if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+            setTopUpError("Iltimos to'g'ri summa kiriting.");
             return;
         }
+        if (numericAmount < MIN_TOPUP) {
+            setTopUpError(`Minimal summa ${MIN_TOPUP} MALI.`);
+            return;
+        }
+        if (numericAmount > MAX_TOPUP) {
+            setTopUpError(`Maksimal summa ${MAX_TOPUP.toLocaleString()} MALI.`);
+            return;
+        }
+        setTopUpError('');
         setTopUpStatus('loading');
         try {
             const token = localStorage.getItem('token');
@@ -372,6 +522,7 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
             if (res.ok) {
                 setTopUpStatus('success');
                 setTopUpAmount('');
+                setTopUpError('');
                 fetchPendingRequests();
                 setTimeout(() => {
                     setShowTopUpModal(false);
@@ -380,44 +531,177 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
             } else {
                 setTopUpStatus('error');
                 const err = await res.json();
-                alert(err.message || 'Xatolik yuz berdi');
+                setTopUpError(err.message || "So'rov yuborishda xatolik yuz berdi.");
             }
-        } catch (e) { setTopUpStatus('error'); }
+        } catch (e) {
+            setTopUpStatus('error');
+            setTopUpError("Serverga ulanib bo'lmadi. Qayta urinib ko'ring.");
+        }
     };
 
-    const handleSend = () => { alert("Foydalanuvchiga pul yuborish uchun chatga o'ting va 'Send MALI' tugmasini bosing."); };
+    const handleSend = () => {
+        setSendStatus('idle');
+        setSendError('');
+        setSendAmount('');
+        setSendPin('');
+        setSendNote('');
+        setSendSearch('');
+        setShowSendModal(true);
+        fetchContacts();
+    };
+
+    const submitSend = async () => {
+        const numericAmount = Number(sendAmount);
+        if (!sendRecipientId) {
+            setSendError("Kontaktni tanlang.");
+            return;
+        }
+        if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+            setSendError("To'g'ri summa kiriting.");
+            return;
+        }
+        if (numericAmount > balance.available) {
+            setSendError("Balans yetarli emas.");
+            return;
+        }
+        if (!sendPin || sendPin.length !== 4 || Number.isNaN(Number(sendPin))) {
+            setSendError("4 xonali PIN kiriting.");
+            return;
+        }
+
+        setSendStatus('loading');
+        setSendError('');
+        try {
+            const token = localStorage.getItem('token');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+            const res = await fetch(`${API_URL}/api/token/transfer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    receiverId: sendRecipientId,
+                    amount: numericAmount,
+                    pin: sendPin,
+                    note: sendNote.trim() || undefined
+                })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setSendStatus('error');
+                setSendError(err.message || "Yuborishda xatolik yuz berdi.");
+                return;
+            }
+            setSendStatus('success');
+            fetchBalance();
+            fetchTransactions();
+            setTimeout(() => {
+                setShowSendModal(false);
+                setSendStatus('idle');
+            }, 1200);
+        } catch {
+            setSendStatus('error');
+            setSendError("Serverga ulanib bo'lmadi. Qayta urinib ko'ring.");
+        }
+    };
+
+    const handleWithdraw = async () => {
+        const numericAmount = Number(withdrawAmount);
+        const cleanCard = withdrawCard.replace(/\D/g, '');
+        if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+            setWithdrawError("Iltimos to'g'ri summa kiriting.");
+            return;
+        }
+        if (numericAmount < MIN_WITHDRAW) {
+            setWithdrawError(`Minimal yechish summasi ${MIN_WITHDRAW} MALI.`);
+            return;
+        }
+        if (numericAmount > balance.available) {
+            setWithdrawError("Balans yetarli emas.");
+            return;
+        }
+        if (numericAmount > walletConfig.systemAvailableMali) {
+            setWithdrawError("Tizim rezervida yetarli MALI yo'q. Kichikroq summa kiriting.");
+            return;
+        }
+        if (cleanCard.length < 16) {
+            setWithdrawError("Karta raqamini to'liq kiriting.");
+            return;
+        }
+        if (!withdrawPin || withdrawPin.length !== 4 || Number.isNaN(Number(withdrawPin))) {
+            setWithdrawError("4 xonali PIN kiriting.");
+            return;
+        }
+
+        setWithdrawStatus('loading');
+        setWithdrawError('');
+        try {
+            const token = localStorage.getItem('token');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-ad05.up.railway.app';
+            const usersRes = await fetch(`${API_URL}/api/users`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!usersRes.ok) {
+                setWithdrawStatus('error');
+                setWithdrawError("Admin foydalanuvchisi topilmadi. Keyinroq urinib ko'ring.");
+                return;
+            }
+            const users = await usersRes.json();
+            const admin = users.find((u: any) => u.role === 'admin');
+            if (!admin?.id) {
+                setWithdrawStatus('error');
+                setWithdrawError("Yechish vaqtincha mavjud emas. Support bilan bog'laning.");
+                return;
+            }
+
+            const transferRes = await fetch(`${API_URL}/api/token/transfer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    receiverId: admin.id,
+                    amount: numericAmount,
+                    pin: withdrawPin,
+                    note: `WITHDRAW_REQUEST:${cleanCard}`
+                })
+            });
+            if (!transferRes.ok) {
+                const err = await transferRes.json().catch(() => ({}));
+                setWithdrawStatus('error');
+                setWithdrawError(err.message || "Yechish so'rovini yuborib bo'lmadi.");
+                return;
+            }
+
+            setWithdrawStatus('success');
+            setWithdrawAmount('');
+            setWithdrawCard('');
+            setWithdrawPin('');
+            fetchBalance();
+            fetchTransactions();
+            fetchWalletConfig();
+            setTimeout(() => {
+                setShowWithdrawModal(false);
+                setWithdrawStatus('idle');
+            }, 1600);
+        } catch {
+            setWithdrawStatus('error');
+            setWithdrawError("Serverga ulanib bo'lmadi. Qayta urinib ko'ring.");
+        }
+    };
 
     return (
-        <div className="h-full flex flex-col gap-6 p-6 pt-12 overflow-y-auto custom-scrollbar relative">
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="flex-1 min-h-0 h-auto w-full flex flex-col gap-3 lg:gap-6 px-1 py-1 lg:p-6 lg:pt-12 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 lg:h-full overflow-visible lg:overflow-y-auto lg:overscroll-y-contain lg:custom-scrollbar relative">
+            <div className="hidden lg:block absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
                 <div className="absolute top-[10%] left-[20%] w-72 h-72 bg-emerald-500/10 rounded-full blur-[100px]"></div>
                 <div className="absolute bottom-[20%] right-[10%] w-96 h-96 bg-blue-500/10 rounded-full blur-[120px]"></div>
             </div>
 
-            <div className="relative z-10 space-y-6 max-w-2xl mx-auto w-full">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h2 className="text-3xl font-bold text-white mb-1">Mening Hamyonim</h2>
-                        <p className="text-white/50">MALI raqamli aktivlaringizni boshqaring</p>
-                    </div>
-                    <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 backdrop-blur-md">
-                        <button
-                            onClick={() => setWalletTab('balance')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${walletTab === 'balance' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-white/40 hover:text-white/60'}`}
-                        >
-                            Hamyon
-                        </button>
-                        <button
-                            onClick={() => setWalletTab('history')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${walletTab === 'history' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'text-white/40 hover:text-white/60'}`}
-                        >
-                            Tarix
-                        </button>
+            <div className="relative z-10 space-y-3 lg:space-y-6 lg:max-w-2xl lg:mx-auto w-full">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3">
+                    <div className="hidden lg:block">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-1">Mening Hamyonim</h2>
+                        <p className="text-white/50 text-sm sm:text-base">MALI raqamli aktivlaringizni boshqaring</p>
                     </div>
                 </div>
 
-                {walletTab === 'balance' && (
-                    <div className="space-y-6 animate-fade-in">
+                <div className="space-y-3 lg:space-y-6 animate-fade-in">
                         {!balance.hasPin && !showPinSetup && (
                             <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-center justify-between animate-pulse-slow">
                                 <div className="flex items-center gap-3">
@@ -446,18 +730,18 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                             </GlassCard>
                         )}
 
-                        <GlassCard className="p-8 relative overflow-hidden border-white/10 bg-gradient-to-br from-[rgba(var(--glass-rgb),0.8)] to-[rgba(var(--glass-rgb),0.6)] backdrop-blur-xl">
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-48 w-48 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <GlassCard className="p-4 lg:p-8 relative overflow-hidden border-white/10 bg-gradient-to-br from-[rgba(var(--glass-rgb),0.8)] to-[rgba(var(--glass-rgb),0.6)] backdrop-blur-xl !rounded-[1.25rem] lg:!rounded-[25px]">
+                            <div className="absolute top-0 right-0 p-2 lg:p-4 opacity-10 pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 lg:h-48 lg:w-48 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </div>
 
                             <div className="relative z-10">
-                                <p className="text-emerald-400 font-medium tracking-wider text-sm uppercase mb-2">Umumiy Balans</p>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-5xl font-bold text-white tracking-tight">{balance.available.toLocaleString()}</span>
-                                    <span className="text-xl font-medium text-white/60">MALI</span>
+                                <p className="text-emerald-400 font-medium tracking-wider text-[10px] lg:text-sm uppercase mb-1 lg:mb-2">Umumiy Balans</p>
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                    <span className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white tracking-tight">{balance.available.toLocaleString()}</span>
+                                    <span className="text-sm lg:text-xl font-medium text-white/60">MALI</span>
                                 </div>
-                                <p className="text-white/40 text-sm mt-2">≈ {(balance.available * 4899).toLocaleString()} UZS</p>
+                                <p className="text-white/40 text-xs lg:text-sm mt-1 lg:mt-2">≈ {(balance.available * 4899).toLocaleString()} UZS</p>
                             </div>
                         </GlassCard>
 
@@ -475,59 +759,147 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                             </div>
                         )}
 
-                        <div className="grid grid-cols-4 gap-4 pb-2">
-                            <button
-                                onClick={() => setShowTopUpModal(true)}
-                                className="group flex flex-col items-center gap-2 transition-all active:scale-90"
-                            >
-                                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-xl group-hover:bg-emerald-500 transition-all duration-500">
-                                    <div className="w-8 h-8 rounded-full bg-emerald-500 group-hover:bg-white flex items-center justify-center shadow-lg transition-all duration-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                        {/* Desktop: eski layout */}
+                        <div className="hidden lg:block">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-2">
+                                <button
+                                    onClick={() => setShowTopUpModal(true)}
+                                    className="group flex flex-col items-center gap-2 transition-all active:scale-90"
+                                >
+                                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-xl group-hover:bg-emerald-500 transition-all duration-500">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-500 group-hover:bg-white flex items-center justify-center shadow-lg transition-all duration-500">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                                        </div>
                                     </div>
-                                </div>
-                                <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">To'ldirish</span>
-                            </button>
+                                    <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">To'ldirish</span>
+                                </button>
 
-                            <button
-                                onClick={handleSend}
-                                className="group flex flex-col items-center gap-2 transition-all active:scale-90"
-                            >
-                                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition-all duration-500">
-                                    <div className="w-8 h-8 rounded-full bg-blue-500 group-hover:bg-white flex items-center justify-center shadow-lg transition-all duration-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                                <button
+                                    onClick={handleSend}
+                                    className="group flex flex-col items-center gap-2 transition-all active:scale-90"
+                                >
+                                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-xl group-hover:bg-blue-500 transition-all duration-500">
+                                        <div className="w-8 h-8 rounded-full bg-blue-500 group-hover:bg-white flex items-center justify-center shadow-lg transition-all duration-500">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                                        </div>
                                     </div>
-                                </div>
-                                <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">Yuborish</span>
-                            </button>
+                                    <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">Yuborish</span>
+                                </button>
 
-                            <button
-                                onClick={() => { setMarketTab(marketTab === 'buy' ? 'none' : 'buy'); fetchAds(); }}
-                                className="group flex flex-col items-center gap-2 transition-all active:scale-90"
-                            >
-                                <div className={`w-14 h-14 rounded-2xl backdrop-blur-2xl border flex items-center justify-center shadow-xl transition-all duration-500 ${marketTab === 'buy' ? 'bg-indigo-500 border-indigo-400' : 'bg-white/10 border-white/20 group-hover:bg-indigo-500'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${marketTab === 'buy' ? 'bg-white text-indigo-500' : 'bg-indigo-500 text-white group-hover:bg-white group-hover:text-indigo-500'}`}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                <button
+                                    onClick={() => { setMarketTab(marketTab === 'buy' ? 'none' : 'buy'); fetchAds(); }}
+                                    className="group flex flex-col items-center gap-2 transition-all active:scale-90"
+                                >
+                                    <div className={`w-14 h-14 rounded-2xl backdrop-blur-2xl border flex items-center justify-center shadow-xl transition-all duration-500 ${marketTab === 'buy' ? 'bg-indigo-500 border-indigo-400' : 'bg-white/10 border-white/20 group-hover:bg-indigo-500'}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${marketTab === 'buy' ? 'bg-white text-indigo-500' : 'bg-indigo-500 text-white group-hover:bg-white group-hover:text-indigo-500'}`}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                        </div>
                                     </div>
-                                </div>
-                                <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">Sotib olish</span>
-                            </button>
+                                    <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">Sotib olish</span>
+                                </button>
 
-                            <button
-                                onClick={() => { setMarketTab(marketTab === 'sell' ? 'none' : 'sell'); fetchAds(); }}
-                                className="group flex flex-col items-center gap-2 transition-all active:scale-90"
-                            >
-                                <div className={`w-14 h-14 rounded-2xl backdrop-blur-2xl border flex items-center justify-center shadow-xl transition-all duration-500 ${marketTab === 'sell' ? 'bg-amber-500 border-amber-400' : 'bg-white/10 border-white/20 group-hover:bg-amber-500'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${marketTab === 'sell' ? 'bg-white text-amber-500' : 'bg-amber-500 text-white group-hover:bg-white group-hover:text-amber-500'}`}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <button
+                                    onClick={() => { setMarketTab(marketTab === 'sell' ? 'none' : 'sell'); fetchAds(); }}
+                                    className="group flex flex-col items-center gap-2 transition-all active:scale-90"
+                                >
+                                    <div className={`w-14 h-14 rounded-2xl backdrop-blur-2xl border flex items-center justify-center shadow-xl transition-all duration-500 ${marketTab === 'sell' ? 'bg-amber-500 border-amber-400' : 'bg-white/10 border-white/20 group-hover:bg-amber-500'}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ${marketTab === 'sell' ? 'bg-white text-amber-500' : 'bg-amber-500 text-white group-hover:bg-white group-hover:text-amber-500'}`}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        </div>
                                     </div>
-                                </div>
-                                <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">Sotish</span>
+                                    <span className="text-white/70 font-bold text-[9px] uppercase tracking-wider group-hover:text-white transition-colors">Sotish</span>
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setWithdrawError('');
+                                    setWithdrawStatus('idle');
+                                    setShowWithdrawModal(true);
+                                }}
+                                className="w-full mt-1 py-3 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-sm transition-all"
+                            >
+                                Naqdga yechish
                             </button>
                         </div>
 
+                        {/* Mobile: 1 ta card (To'ldirish + Yuborish) va Naqdga yechish ham shu cardda */}
+                        <div className="lg:hidden">
+                            <GlassCard className="!p-3 !rounded-[1.25rem] bg-white/10 border-white/20 shadow-xl">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => setShowTopUpModal(true)}
+                                        className="group flex flex-col items-center gap-1.5 transition-all active:scale-95"
+                                    >
+                                        <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-lg group-hover:bg-emerald-500 transition-all duration-500">
+                                            <div className="w-7 h-7 rounded-full bg-emerald-500 group-hover:bg-white flex items-center justify-center shadow-md transition-all duration-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                                            </div>
+                                        </div>
+                                        <span className="text-white/70 font-bold text-[8px] uppercase tracking-wider group-hover:text-white transition-colors">To'ldirish</span>
+                                    </button>
+
+                                    <button
+                                        onClick={handleSend}
+                                        className="group flex flex-col items-center gap-1.5 transition-all active:scale-95"
+                                    >
+                                        <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-lg group-hover:bg-blue-500 transition-all duration-500">
+                                            <div className="w-7 h-7 rounded-full bg-blue-500 group-hover:bg-white flex items-center justify-center shadow-md transition-all duration-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                                            </div>
+                                        </div>
+                                        <span className="text-white/70 font-bold text-[8px] uppercase tracking-wider group-hover:text-white transition-colors">Yuborish</span>
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setWithdrawError('');
+                                        setWithdrawStatus('idle');
+                                        setShowWithdrawModal(true);
+                                    }}
+                                    className="w-full mt-3 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-xs transition-all"
+                                >
+                                    Naqdga yechish
+                                </button>
+                            </GlassCard>
+                        </div>
+
+                        {/* Mobile: 1 ta card (Sotib olish + Sotish) */}
+                        <div className="lg:hidden">
+                            <GlassCard className="!p-3 !rounded-[1.25rem] bg-white/10 border-white/20 shadow-xl">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => { setMarketTab(marketTab === 'buy' ? 'none' : 'buy'); fetchAds(); }}
+                                        className="group flex flex-col items-center gap-1.5 transition-all active:scale-95"
+                                    >
+                                        <div className={`w-11 h-11 rounded-xl backdrop-blur-2xl border flex items-center justify-center shadow-lg transition-all duration-500 ${marketTab === 'buy' ? 'bg-indigo-500 border-indigo-400' : 'bg-white/10 border-white/20 group-hover:bg-indigo-500'}`}>
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shadow-md transition-all duration-500 ${marketTab === 'buy' ? 'bg-white text-indigo-500' : 'bg-indigo-500 text-white group-hover:bg-white group-hover:text-indigo-500'}`}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                            </div>
+                                        </div>
+                                        <span className="text-white/70 font-bold text-[8px] uppercase tracking-wider group-hover:text-white transition-colors">Sotib olish</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setMarketTab(marketTab === 'sell' ? 'none' : 'sell'); fetchAds(); }}
+                                        className="group flex flex-col items-center gap-1.5 transition-all active:scale-95"
+                                    >
+                                        <div className={`w-11 h-11 rounded-xl backdrop-blur-2xl border flex items-center justify-center shadow-lg transition-all duration-500 ${marketTab === 'sell' ? 'bg-amber-500 border-amber-400' : 'bg-white/10 border-white/20 group-hover:bg-amber-500'}`}>
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shadow-md transition-all duration-500 ${marketTab === 'sell' ? 'bg-white text-amber-500' : 'bg-amber-500 text-white group-hover:bg-white group-hover:text-amber-500'}`}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            </div>
+                                        </div>
+                                        <span className="text-white/70 font-bold text-[8px] uppercase tracking-wider group-hover:text-white transition-colors">Sotish</span>
+                                    </button>
+                                </div>
+                            </GlassCard>
+                        </div>
+
+                        <WalletHistoryCard transactions={transactions} />
+
                         {/* TRADE MONITORING & HISTORY */}
                         {myTrades.length > 0 && (
-                            <div className="animate-fade-in space-y-6">
+                            <div className="animate-fade-in space-y-3 lg:space-y-6 rounded-[1.25rem] lg:rounded-[24px] bg-white/5 border border-white/10 p-3 lg:p-0 lg:bg-transparent lg:border-0">
                                 {/* Active Trades */}
                                 {myTrades.some(t => t.status === 'pending') && (
                                     <div className="space-y-3">
@@ -829,77 +1201,6 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                             </button>
                         </div>
                     </div>
-                )}
-
-                {walletTab === 'history' && (
-                    <div className="space-y-6 animate-fade-in pb-10">
-                        {transactions.length === 0 ? (
-                            <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[40px] bg-white/[0.02]">
-                                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <p className="text-white/30 font-medium">Hali tranzaksiyalar mavjud emas</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-4">
-                                {transactions.map((tx) => {
-                                    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                                    const userId = currentUser.id || currentUser.userId;
-                                    const isSender = tx.sender_id === userId;
-                                    const otherName = isSender ? (tx.receiver_name || 'Tizim') : (tx.sender_name || 'Tizim');
-                                    const otherAvatar = isSender ? tx.receiver_avatar : tx.sender_avatar;
-
-                                    return (
-                                        <GlassCard key={tx.id} className="p-5 border-white/5 hover:border-white/10 hover:bg-white/[0.04] transition-all group overflow-hidden relative">
-                                            {/* Accent glow on hover */}
-                                            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-transparent via-blue-500/40 to-transparent scale-y-0 group-hover:scale-y-100 transition-transform duration-500" />
-
-                                            <div className="flex justify-between items-center relative z-10">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-white/5 p-0.5 border border-white/10">
-                                                        {otherAvatar ? (
-                                                            <img src={otherAvatar} className="w-full h-full object-cover rounded-[14px]" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/10 to-transparent rounded-[14px]">
-                                                                <span className="text-white text-sm font-bold">{otherName[0]}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-white font-black text-sm tracking-tight">{isSender ? "Yuborilgan: " : "Qabul qilingan: "} {otherName}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className={`text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${isSender ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                                                                {isSender ? 'Chiquvchi' : 'Kiruvchi'}
-                                                            </span>
-                                                            <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
-                                                                {new Date(tx.created_at).toLocaleString('uz-UZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className={`text-xl font-black tabular-nums transition-colors ${isSender ? 'text-white/90' : 'text-emerald-400'}`}>
-                                                        {isSender ? '-' : '+'}{Number(tx.amount).toLocaleString()}
-                                                    </p>
-                                                    <p className="text-[10px] text-white/20 font-black uppercase tracking-widest">MALI</p>
-                                                </div>
-                                            </div>
-
-                                            {tx.note && (
-                                                <div className="mt-4 pt-3 border-t border-white/5">
-                                                    <p className="text-[11px] text-white/40 italic flex items-center gap-2">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 opacity-30" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9a1 1 0 100-2 1 1 0 000 2zm3 1a1 1 0 100-2 1 1 0 000 2zm4-1a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
-                                                        {tx.note}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </GlassCard>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
 
             {showTopUpModal && (
@@ -917,7 +1218,9 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
                                 </div>
                                 <div className="space-y-1 text-center py-2">
-                                    <p className="text-2xl font-mono text-white tracking-[0.15em] drop-shadow-md">8600 1234 5678 9012</p>
+                                    <p className="text-2xl font-mono text-white tracking-[0.15em] drop-shadow-md">
+                                        {walletConfig.adminCard || 'Karta raqami sozlanmagan'}
+                                    </p>
                                     <p className="text-white/60 text-sm uppercase tracking-widest mt-2">MALI ADMIN</p>
                                 </div>
                             </div>
@@ -944,9 +1247,25 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-sm">MALI</span>
                                         </div>
                                     </div>
+                                    {topUpError && (
+                                        <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                                            {topUpError}
+                                        </p>
+                                    )}
                                     <p className="text-xs text-white/40 text-center">
                                         To'g'ridan to'g'ri MALI summasini kiriting.
                                     </p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[50, 100, 200].map((preset) => (
+                                            <button
+                                                key={preset}
+                                                onClick={() => setTopUpAmount(String(preset))}
+                                                className="py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 text-xs border border-white/10"
+                                            >
+                                                {preset} MALI
+                                            </button>
+                                        ))}
+                                    </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button onClick={() => setShowTopUpModal(false)} className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium border border-white/10 transition-all">Yopish</button>
                                         <button onClick={transformTopUp} disabled={topUpStatus === 'loading'} className="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-900/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
@@ -954,6 +1273,190 @@ export default function WalletPanel({ onChatSelect }: { onChatSelect?: (chat: an
                                         </button>
                                     </div>
                                 </div>
+                            )}
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
+            {showWithdrawModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
+                    <GlassCard className="w-full max-w-md !p-0 overflow-hidden relative shadow-2xl animate-scale-in">
+                        <div className="bg-gradient-to-r from-rose-900/40 to-orange-900/40 p-6 border-b border-white/10">
+                            <h2 className="text-xl font-bold text-white">Naqdga yechish</h2>
+                            <p className="text-white/60 text-sm">Yechish so'rovini yuborish</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {withdrawStatus === 'success' ? (
+                                <div className="text-center py-5 space-y-2">
+                                    <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-white">✓</div>
+                                    <h3 className="text-white font-bold text-lg">So'rov yuborildi</h3>
+                                    <p className="text-white/50 text-sm">Operator siz bilan bog'lanadi.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Summa (MALI)</label>
+                                        <input
+                                            type="number"
+                                            value={withdrawAmount}
+                                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                                            placeholder="0.00"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Karta raqami</label>
+                                        <input
+                                            type="text"
+                                            value={withdrawCard}
+                                            onChange={(e) => setWithdrawCard(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                                            placeholder="8600 0000 0000 0000"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">PIN (4 xonali)</label>
+                                        <input
+                                            type="password"
+                                            maxLength={4}
+                                            value={withdrawPin}
+                                            onChange={(e) => setWithdrawPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                            placeholder="****"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-white/50">
+                                        Balans: {balance.available.toLocaleString()} MALI. Min: {MIN_WITHDRAW} MALI
+                                    </p>
+                                    <p className="text-xs text-amber-200/80">
+                                        Tizimdagi mavjud MALI: {walletConfig.systemAvailableMali.toLocaleString()}
+                                    </p>
+                                    {withdrawError && (
+                                        <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                                            {withdrawError}
+                                        </p>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-3 pt-1">
+                                        <button
+                                            onClick={() => setShowWithdrawModal(false)}
+                                            className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium border border-white/10"
+                                        >
+                                            Yopish
+                                        </button>
+                                        <button
+                                            onClick={handleWithdraw}
+                                            disabled={withdrawStatus === 'loading'}
+                                            className="py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold disabled:opacity-60"
+                                        >
+                                            {withdrawStatus === 'loading' ? "Yuborilmoqda..." : "So'rov yuborish"}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </GlassCard>
+                </div>
+            )}
+            {showSendModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in p-3">
+                    <GlassCard className="w-full max-w-md !p-0 overflow-hidden relative shadow-2xl animate-scale-in">
+                        <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 p-5 border-b border-white/10">
+                            <h2 className="text-lg sm:text-xl font-bold text-white">MALI yuborish</h2>
+                            <p className="text-white/60 text-xs sm:text-sm">Kontakt tanlang va summani kiriting</p>
+                        </div>
+                        <div className="p-4 sm:p-6 space-y-4">
+                            {sendStatus === 'success' ? (
+                                <div className="text-center py-5 space-y-2">
+                                    <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-white">✓</div>
+                                    <h3 className="text-white font-bold text-lg">Muvaffaqiyatli yuborildi</h3>
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Kontakt qidirish</label>
+                                        <input
+                                            type="text"
+                                            value={sendSearch}
+                                            onChange={(e) => setSendSearch(e.target.value)}
+                                            placeholder="Ism yoki telefon"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Kontakt</label>
+                                        <div className="mt-1 max-h-40 overflow-y-auto border border-white/10 rounded-xl bg-white/5">
+                                            {contacts
+                                                .filter((c) => {
+                                                    const q = sendSearch.trim().toLowerCase();
+                                                    if (!q) return true;
+                                                    return (c.name || '').toLowerCase().includes(q) || String(c.phone || '').includes(q);
+                                                })
+                                                .map((contact: any) => (
+                                                    <button
+                                                        key={contact.id}
+                                                        onClick={() => setSendRecipientId(contact.id)}
+                                                        className={`w-full px-3 py-2 text-left text-sm border-b border-white/5 last:border-b-0 ${
+                                                            sendRecipientId === contact.id ? 'bg-blue-500/20 text-white' : 'text-white/80 hover:bg-white/10'
+                                                        }`}
+                                                    >
+                                                        {(contact.name || 'Kontakt')} {contact.surname || ''} {contact.phone ? `(${contact.phone})` : ''}
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Summa (MALI)</label>
+                                        <input
+                                            type="number"
+                                            value={sendAmount}
+                                            onChange={(e) => setSendAmount(e.target.value)}
+                                            placeholder="0.00"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">PIN (4 xonali)</label>
+                                        <input
+                                            type="password"
+                                            maxLength={4}
+                                            value={sendPin}
+                                            onChange={(e) => setSendPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                            placeholder="****"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Izoh (ixtiyoriy)</label>
+                                        <input
+                                            type="text"
+                                            value={sendNote}
+                                            onChange={(e) => setSendNote(e.target.value)}
+                                            placeholder="Xizmat uchun to'lov"
+                                            className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                        />
+                                    </div>
+                                    {sendError && (
+                                        <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                                            {sendError}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-white/50">Mavjud balans: {balance.available.toLocaleString()} MALI</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => setShowSendModal(false)}
+                                            className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium border border-white/10"
+                                        >
+                                            Yopish
+                                        </button>
+                                        <button
+                                            onClick={submitSend}
+                                            disabled={sendStatus === 'loading'}
+                                            className="py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold disabled:opacity-60"
+                                        >
+                                            {sendStatus === 'loading' ? "Yuborilmoqda..." : "Yuborish"}
+                                        </button>
+                                    </div>
+                                </>
                             )}
                         </div>
                     </GlassCard>

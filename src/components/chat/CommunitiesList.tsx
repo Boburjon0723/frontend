@@ -61,7 +61,7 @@ export default function CommunitiesList() {
     };
 
     return (
-        <div className="h-full flex flex-col gap-6 p-6 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 min-h-0 h-full flex flex-col gap-6 p-4 md:p-6 overflow-y-auto overscroll-y-contain custom-scrollbar">
             <div className="flex justify-between items-center">
                 <div>
                     <h2 className="text-3xl font-bold text-white mb-1">Hamjamiyatlar</h2>

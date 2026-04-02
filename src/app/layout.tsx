@@ -1,5 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+/** Mobil notch / home indicator: fon to‘liq ekran, status bar ostida oq bo‘shliq kamayadi */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0f172a",
+};
 
 export const metadata: Metadata = {
   title: "ExpertLine — mutaxassislarni toping, xavfsiz muloqot",

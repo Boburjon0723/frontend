@@ -1500,20 +1500,6 @@ export default function ProfileViewer({
                                                 <option value="Moliyaviy maslahatchi">Moliyaviy maslahatchi</option>
                                                 <option value="Investitsiya eksperti">Investitsiya eksperti</option>
                                             </optgroup>
-                                            <optgroup label="Tibbiyot" className="bg-[#121B22] text-[#00A884] font-bold">
-                                                <option value="Umumiy shifokor">Umumiy shifokor (online)</option>
-                                                <option value="Dietolog">Dietolog</option>
-                                                <option value="Endokrinolog">Endokrinolog</option>
-                                                <option value="Dermatolog">Dermatolog</option>
-                                                <option value="Sport shifokori">Sport shifokori</option>
-                                            </optgroup>
-                                            <optgroup label="IT va texnologiya" className="bg-[#121B22] text-[#00A884] font-bold">
-                                                <option value="Dasturchi mentor">Dasturchi mentor</option>
-                                                <option value="UX/UI maslahatchi">UX/UI maslahatchi</option>
-                                                <option value="DevOps konsultant">DevOps konsultant</option>
-                                                <option value="Kiberxavfsizlik eksperti">Kiberxavfsizlik eksperti</option>
-                                                <option value="AI bo‘yicha konsultant">AI bo‘yicha konsultant</option>
-                                            </optgroup>
                                             <option value="Other" className="bg-[#121B22]">Boshqa</option>
                                         </select>
                                         {expertErrors.profession && (

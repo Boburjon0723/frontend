@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { isExpertListingChat } from '@/lib/listing-chat';
 import { getExpertListingPitch } from '@/lib/expert-roles';
 import {
@@ -20,10 +20,15 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
     const [imgError, setImgError] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [listingIntro, setListingIntro] = useState(false);
+    /** Bir xil suhbat uchun panel yopib-ochganda profil/statistikani qayta yuklamaslik */
+    const lastFetchKeyRef = useRef<string>('');
 
     useEffect(() => {
         if (!chat) return;
         if (chat.type === 'private' && isExpertListingChat(chat) && chat.otherUser) {
+            const key = `listing:${chat.id}`;
+            if (lastFetchKeyRef.current === key) return;
+            lastFetchKeyRef.current = key;
             setListingIntro(true);
             setFullUserDetails({ ...chat.otherUser });
             setLoading(false);
@@ -32,13 +37,17 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
                 name: chat.otherUser.name || '',
                 surname: chat.otherUser.surname || '',
             });
-            fetchChatStats();
+            void fetchChatStats();
             return;
         }
+        const targetId = String(chat.participantId || chat.otherUser?.id || chat.userId || chat.id || '');
+        const key = `priv:${chat.id}:${targetId}`;
+        if (lastFetchKeyRef.current === key) return;
+        lastFetchKeyRef.current = key;
         setListingIntro(false);
-        fetchUserDetails();
-        fetchChatStats();
-    }, [chat?.id, chat?.type, chat?.metadata, chat?.otherUser?.id]);
+        void fetchUserDetails();
+        void fetchChatStats();
+    }, [chat?.id, chat?.type, chat?.participantId, chat?.otherUser?.id, chat?.userId]);
 
     const fetchUserDetails = async () => {
         if (!chat) return;
@@ -157,18 +166,16 @@ export default function UserInfoPanel({ chat, onClose }: UserInfoPanelProps) {
     const username = !listingIntro && user.username ? `@${user.username}` : '';
 
     return (
-        <div className="fixed lg:relative inset-0 lg:inset-auto z-[70] lg:z-0 h-full w-full flex flex-col bg-[#788296]/25 lg:bg-transparent backdrop-blur-[20px] lg:backdrop-blur-none border-l-0 lg:border-l lg:border-white/20 overflow-hidden animate-slide-left select-none relative">
-            <div className="lg:hidden absolute inset-0 bg-slate-900/40 -z-10" />
-
+        <div className="fixed lg:relative inset-0 lg:inset-auto z-[70] lg:z-0 h-full min-h-0 w-full flex flex-col max-lg:bg-white/[0.07] max-lg:backdrop-blur-2xl max-lg:backdrop-saturate-150 lg:bg-transparent lg:backdrop-blur-none border-l-0 lg:border-l lg:border-white/20 overflow-hidden select-none relative pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:pt-0 lg:pb-0">
             {/* Close Button Top Right */}
             <button
                 onClick={onClose}
-                className="absolute top-4 right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all"
+                className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-full transition-all lg:top-4"
             >
                 <X className="h-6 w-6" />
             </button>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain custom-scrollbar">
                 {listingIntro && (
                     <div className="mx-4 mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100/95 leading-snug">
                         <span className="font-bold text-amber-200">E&apos;londan yozilgan suhbat.</span>{' '}

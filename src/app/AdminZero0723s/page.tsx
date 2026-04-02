@@ -106,7 +106,16 @@ export default function AdminPanel() {
     const [expertTab, setExpertTab] = useState('pending'); // 'pending' | 'verified'
     const [jobCategories, setJobCategories] = useState<JobCategory[]>([]);
     const [newCategory, setNewCategory] = useState({ name_uz: '', name_ru: '', icon: 'Briefcase', price: '100' });
-    const [platformSettings, setPlatformSettings] = useState({ expert_subscription_fee: 20, commission_rate: 10 });
+    const [platformSettings, setPlatformSettings] = useState({
+        expert_subscription_fee: 20,
+        commission_rate: 10,
+        admin_card_number: ''
+    });
+    const [systemStats, setSystemStats] = useState({
+        system_treasury_balance: 0,
+        total_user_balance: 0,
+        total_fees_collected: 0
+    });
     const [desktopDownloadUrl, setDesktopDownloadUrl] = useState<string | null>(null);
     const [desktopVersion, setDesktopVersion] = useState<string | null>(null);
     const [desktopFile, setDesktopFile] = useState<File | null>(null);
@@ -122,6 +131,16 @@ export default function AdminPanel() {
         checkAdminAccess();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (!authorized) return;
+        if (activeTab !== 'settings' && activeTab !== 'dashboard') return;
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        // Open settings/dashboard -> always re-fetch latest numbers from server.
+        fetchData(token);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, authorized]);
 
     const checkAdminAccess = async () => {
         const token = localStorage.getItem('token');
@@ -224,7 +243,13 @@ export default function AdminPanel() {
                     const settings = await settingsRes.json();
                     const fee = settings.expert_subscription_fee != null ? Number(settings.expert_subscription_fee) : 20;
                     const rate = settings.commission_rate != null ? Number(settings.commission_rate) * 100 : 10;
-                    setPlatformSettings({ expert_subscription_fee: fee, commission_rate: rate });
+                    const adminCard = settings.admin_card_number ? String(settings.admin_card_number) : '';
+                    setPlatformSettings({ expert_subscription_fee: fee, commission_rate: rate, admin_card_number: adminCard });
+                    setSystemStats({
+                        system_treasury_balance: Number(settings.system_treasury_balance || 0),
+                        total_user_balance: Number(settings.total_user_balance || 0),
+                        total_fees_collected: Number(settings.total_fees_collected || 0)
+                    });
                 }
             } catch {
                 console.log('Settings fetch failed, using defaults');
@@ -375,7 +400,8 @@ export default function AdminPanel() {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
                     expert_subscription_fee: fee,
-                    commission_rate: rate / 100
+                    commission_rate: rate / 100,
+                    admin_card_number: platformSettings.admin_card_number.trim()
                 })
             });
             if (res.ok) {
@@ -663,6 +689,13 @@ export default function AdminPanel() {
                             <div className="flex items-end gap-3">
                                 <span className="text-4xl font-bold text-indigo-500">{pendingExperts.length}</span>
                                 <span className="text-indigo-500 text-sm font-bold mb-1">yangi</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl shadow-xl">
+                            <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-4">Tizimdagi mavjud MALI</h3>
+                            <div className="flex items-end gap-3">
+                                <span className="text-4xl font-bold text-emerald-500">{systemStats.system_treasury_balance.toLocaleString()}</span>
+                                <span className="text-slate-500 text-sm mb-1">MALI</span>
                             </div>
                         </div>
                     </div>
@@ -1218,6 +1251,31 @@ export default function AdminPanel() {
                                         </div>
                                         <p className="text-[10px] text-slate-500 italic mt-2 ml-2">Dars to&apos;lovi tasdiqlanganda ustozdan olinadigan foiz (masalan 10 = 10%).</p>
                                     </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-white/80">Topup/Withdraw uchun admin karta raqami</label>
+                                        <input
+                                            type="text"
+                                            value={platformSettings.admin_card_number}
+                                            onChange={(e) => setPlatformSettings({ ...platformSettings, admin_card_number: e.target.value.replace(/[^\d\s]/g, '').slice(0, 19) })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-emerald-400 focus:border-indigo-500 outline-none transition-all"
+                                            placeholder="8600 1234 5678 9012"
+                                        />
+                                        <p className="text-[10px] text-slate-500 italic mt-2 ml-2">Wallet bo&apos;limidagi to&apos;ldirish karta maydoni shu qiymatni oladi.</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                                        <div className="bg-black/30 border border-white/10 rounded-2xl p-4">
+                                            <p className="text-[10px] text-slate-500 uppercase font-bold">Tizim rezervi</p>
+                                            <p className="text-xl font-bold text-emerald-400 mt-2">{systemStats.system_treasury_balance.toLocaleString()} MALI</p>
+                                        </div>
+                                        <div className="bg-black/30 border border-white/10 rounded-2xl p-4">
+                                            <p className="text-[10px] text-slate-500 uppercase font-bold">Foydalanuvchi balanslari yig&apos;indisi</p>
+                                            <p className="text-xl font-bold text-blue-400 mt-2">{systemStats.total_user_balance.toLocaleString()} MALI</p>
+                                        </div>
+                                        <div className="bg-black/30 border border-white/10 rounded-2xl p-4">
+                                            <p className="text-[10px] text-slate-500 uppercase font-bold">Yig&apos;ilgan fee</p>
+                                            <p className="text-xl font-bold text-amber-400 mt-2">{systemStats.total_fees_collected.toLocaleString()} MALI</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <button
@@ -1225,6 +1283,17 @@ export default function AdminPanel() {
                                     className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] py-5 rounded-[28px] font-bold text-lg shadow-2xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3"
                                 >
                                     O'zgarishlarni saqlash
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const token = localStorage.getItem('token');
+                                        if (!token) return;
+                                        fetchData(token);
+                                    }}
+                                    className="w-full bg-white/10 hover:bg-white/15 py-3 rounded-2xl font-semibold text-sm transition-all"
+                                >
+                                    Ko'rsatkichlarni yangilash
                                 </button>
                             </div>
                         </div>
